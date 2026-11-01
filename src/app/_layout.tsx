@@ -1,10 +1,13 @@
 import { Stack } from 'expo-router';
+import { EventsProvider } from '@/context/EventsContext';
 
 export default function RootLayout() {
   return (
-    <Stack>
-      {/* title */}
-      <Stack.Screen name="index" options={{ title: 'Fuck it!' }} />
-    </Stack>
+    <EventsProvider>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="mission" />
+      </Stack>
+    </EventsProvider>
   );
 }
