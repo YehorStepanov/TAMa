@@ -65,7 +65,7 @@ export default function TodayScreen() {
       </View>
       <View style={styles.bottom}>
         <Text style={styles.hint}>Can't decide? Let the app pick.</Text>
-        <AppButton label="Surprise me" onPress={surpriseMe} />
+        <AppButton variant="accent" label="Surprise me" onPress={surpriseMe} />
       </View>
     </SafeAreaView>
   );

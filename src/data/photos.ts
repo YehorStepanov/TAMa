@@ -1,8 +1,14 @@
-// Foto di prova (colori al posto delle immagini). Ogni foto appartiene a un evento.
-const TONES = ['#9DB3BA', '#C9BBA3', '#A9BFAE', '#C7B7BE', '#B5B9C9', '#D0C6AE'];
+import type { ImageSourcePropType } from 'react-native';
 
-export type PhotoItem = { id: string; eventId: string; color: string };
+// Foto "caricate dagli altri utenti", per ora lette dalla cartella assets/event-photos
+// (una sola cartella, senza sottocartelle). Basta copiarci dentro le immagini.
+// NB: gli argomenti di require.context devono restare valori fissi, non variabili.
+const context = (require as any).context('../../assets/event-photos', false, /\.(jpe?g|png|webp)$/i);
 
-export function photosForEvent(eventId: string): PhotoItem[] {
-  return TONES.map((color, i) => ({ id: `${eventId}-${i}`, eventId, color }));
+const ALL_PHOTOS: ImageSourcePropType[] = context.keys().map((key: string) => context(key));
+
+// Per ora tutte le foto vengono mostrate come se fossero dell'evento a cui hai partecipato.
+// Più avanti ogni evento avrà le sue foto, in arrivo dal server.
+export function photosForEvent(_eventId: string): ImageSourcePropType[] {
+  return ALL_PHOTOS;
 }

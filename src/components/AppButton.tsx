@@ -4,12 +4,12 @@ import { colors, sizes } from '@/theme';
 type Props = {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary';
+  variant?: 'primary' | 'secondary' | 'accent';
 };
 
-// primary = 56 px (azione principale), secondary = 48 px (azione secondaria).
+// primary / accent = 56 px (azione principale), secondary = 48 px (azione secondaria).
 export function AppButton({ label, onPress, variant = 'primary' }: Props) {
-  const primary = variant === 'primary';
+  const primary = variant !== 'secondary';
   return (
     <Pressable
       accessibilityRole="button"
@@ -18,6 +18,7 @@ export function AppButton({ label, onPress, variant = 'primary' }: Props) {
       style={({ pressed }) => [
         styles.base,
         primary ? styles.primary : styles.secondary,
+        variant === 'accent' && styles.accent,
         pressed && { opacity: 0.85 },
       ]}>
       <Text style={[styles.text, primary ? styles.textPrimary : styles.textSecondary]}>{label}</Text>
@@ -28,6 +29,7 @@ export function AppButton({ label, onPress, variant = 'primary' }: Props) {
 const styles = StyleSheet.create({
   base: { alignItems: 'center', justifyContent: 'center', width: '100%' },
   primary: { height: sizes.buttonPrimary, borderRadius: 16, backgroundColor: colors.primary },
+  accent: { backgroundColor: colors.accent },
   secondary: {
     height: sizes.buttonSecondary,
     borderRadius: 14,

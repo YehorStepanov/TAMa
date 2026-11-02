@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
+import { StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { AppButton } from '@/components/AppButton';
@@ -57,7 +57,12 @@ export default function MissionScreen() {
       <View style={styles.bottom}>
         <AppButton
           label="Accept mission"
-          onPress={() => Alert.alert('Next step', 'The photo proof screen comes next.')}
+          onPress={() =>
+            router.push({
+              pathname: '/photo-proof',
+              params: { id: event.id, challenge: challengeOn ? challenge : '' },
+            })
+          }
         />
         <AppButton variant="secondary" label="Pick another event" onPress={() => router.back()} />
       </View>

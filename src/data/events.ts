@@ -12,7 +12,7 @@ export const DAY_ORDER = ['Today', 'Wed', 'Fri', 'Sat', 'Sun'];
 
 // Eventi di prova. Più avanti arriveranno dal server.
 export const ALL_EVENTS: EventItem[] = [
-  { id: '1', title: 'Masquerade Party', day: 'Sat', time: '9 PM–2 AM', place: 'Grand Hall', category: 'Party' },
+  { id: '1', title: 'Masquerade Party', day: 'Today', time: '9 PM–2 AM', place: 'Grand Hall', category: 'Party' },
   { id: '2', title: 'Karaoke', day: 'Today', time: '8–11 PM', place: 'The Mic Bar', category: 'Music' },
   { id: '3', title: 'Hike', day: 'Sun', time: '9 AM–2 PM', place: 'Hilltop Trail', category: 'Outdoors' },
   { id: '4', title: 'Tram Party', day: 'Fri', time: '7–10 PM', place: 'Central Tram Stop', category: 'Party' },
@@ -29,7 +29,7 @@ export const ALL_EVENTS: EventItem[] = [
 ];
 
 // Eventi già presenti nella "mia pagina" all'avvio.
-export const INITIAL_MY_IDS = ['2', '7', '9'];
+export const INITIAL_MY_IDS = ['1', '2', '7', '9'];
 
 // Eventi a cui l'utente ha partecipato (hanno la bacheca foto).
 // Per ora vuoto: per provare la bacheca scrivi qui un id, per esempio ['2'].

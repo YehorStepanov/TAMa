@@ -10,6 +10,7 @@ export const colors = {
   success: '#4A7556',
   successBg: '#E3EDE6',
   successText: '#2F5A3E',
+  accent: '#B4532A', // terracotta: solo per Surprise me
   sand: '#E9E1D0',
   sandText: '#4A3F2A',
 };
