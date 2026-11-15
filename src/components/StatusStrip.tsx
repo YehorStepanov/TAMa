@@ -5,7 +5,7 @@ import { colors } from '@/theme';
 export function StatusStrip() {
   return (
     <View style={styles.row}>
-      <Text style={[styles.chip, { color: '#8A5A2B' }]}>3 week streak</Text>
+      <Text style={[styles.chip, { color: colors.accent }]}>3 week streak</Text>
       <Text style={styles.chip}>120 pts</Text>
       <Text style={[styles.chip, { marginLeft: 'auto' }]}>Lv 3</Text>
     </View>

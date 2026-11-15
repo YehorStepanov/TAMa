@@ -37,7 +37,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   body: { flex: 1, paddingHorizontal: sizes.margin, paddingTop: 56, alignItems: 'center', gap: sizes.gap },
   check: { width: 88, height: 88, borderRadius: 44, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center' },
-  checkMark: { fontSize: 48, color: '#FFFFFF', fontWeight: '700' },
+  checkMark: { fontSize: 48, color: colors.onPrimary, fontWeight: '700' },
   title: { fontSize: 26, fontWeight: '700', color: colors.text, marginTop: 8 },
   subtitle: { fontSize: 16, color: colors.muted, textAlign: 'center' },
   card: {

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { AddressLink } from '@/components/AddressLink';
 import { colors, sizes } from '@/theme';
 import type { EventItem } from '@/data/events';
 
@@ -7,11 +8,12 @@ type Props = {
   event: EventItem;
   showDay?: boolean;
   note?: string; // piccola etichetta, per esempio "On my page"
+  showAddress?: boolean; // indirizzo cliccabile che apre Google Maps
   onPress?: () => void; // se presente, tutta la card è cliccabile
   right?: ReactNode; // per esempio il pulsante Add / Remove
 };
 
-export function EventCard({ event, showDay = false, note, onPress, right }: Props) {
+export function EventCard({ event, showDay = false, note, showAddress = false, onPress, right }: Props) {
   const when = showDay ? `${event.day} · ${event.time}` : event.time;
   return (
     <Pressable
@@ -25,6 +27,7 @@ export function EventCard({ event, showDay = false, note, onPress, right }: Prop
         <Text style={styles.line}>
           {when} · {event.place}
         </Text>
+        {showAddress ? <AddressLink address={event.address} /> : null}
         {note ? <Text style={styles.note}>{note}</Text> : null}
       </View>
       {right}

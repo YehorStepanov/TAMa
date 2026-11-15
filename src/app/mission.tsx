@@ -10,16 +10,18 @@ import { colors, sizes } from '@/theme';
 
 export default function MissionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { allEvents } = useEvents();
+  const { allEvents, isCompleted } = useEvents();
   const event = allEvents.find((e) => e.id === id);
   const [challengeOn, setChallengeOn] = useState(true);
   const [challenge, setChallenge] = useState(() => randomChallenge());
 
-  if (!event) {
+  // Una missione per evento: se l'ho già completata non si può rifare.
+  if (!event || isCompleted(event.id)) {
     return (
       <SafeAreaView style={styles.screen}>
         <View style={styles.body}>
-          <Text style={styles.title}>Event not found</Text>
+          <Text style={styles.title}>{event ? 'Mission already completed' : 'Event not found'}</Text>
+          {event && <Text style={styles.points}>You already sent your photo for {event.title}. One photo per event.</Text>}
         </View>
         <View style={styles.bottom}>
           <AppButton label="Back" onPress={() => router.back()} />
@@ -32,12 +34,12 @@ export default function MissionScreen() {
     <SafeAreaView style={styles.screen}>
       <View style={styles.body}>
         <Text style={styles.label}>YOUR MISSION</Text>
-        <EventCard event={event} />
+        <EventCard event={event} showAddress />
 
         <View style={styles.challenge}>
           <View style={styles.challengeTop}>
             <Text style={styles.challengeTitle}>Random challenge</Text>
-            <Switch value={challengeOn} onValueChange={setChallengeOn} trackColor={{ true: colors.success }} />
+            <Switch value={challengeOn} onValueChange={setChallengeOn} trackColor={{ true: colors.primary }} />
           </View>
           {challengeOn && (
             <>

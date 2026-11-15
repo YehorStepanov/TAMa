@@ -13,6 +13,7 @@ type EventsValue = {
   attendedEvents: EventItem[];
   myPhotos: Record<string, string[]>; // foto scattate da me, per id evento
   isOnMyPage: (id: string) => boolean;
+  isCompleted: (id: string) => boolean; // missione già fatta (una sola foto per evento)
   addToMyPage: (id: string) => void;
   removeFromMyPage: (id: string) => void;
   addMyPhoto: (eventId: string, uri: string) => void; // segna anche l'evento come frequentato
@@ -35,9 +36,11 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     attendedEvents: ALL_EVENTS.filter((e) => attendedIds.includes(e.id)),
     myPhotos,
     isOnMyPage: (id) => myIds.includes(id),
+    isCompleted: (id) => attendedIds.includes(id),
     addToMyPage: (id) => setMyIds((ids) => (ids.includes(id) ? ids : [...ids, id])),
     removeFromMyPage: (id) => setMyIds((ids) => ids.filter((x) => x !== id)),
     addMyPhoto: (eventId, uri) => {
+      if (attendedIds.includes(eventId)) return; // una sola foto per evento
       setMyPhotos((p) => ({ ...p, [eventId]: [uri, ...(p[eventId] ?? [])] }));
       setAttendedIds((ids) => (ids.includes(eventId) ? ids : [...ids, eventId]));
     },

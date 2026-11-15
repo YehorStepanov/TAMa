@@ -7,8 +7,13 @@ const context = (require as any).context('../../assets/event-photos', false, /\.
 
 const ALL_PHOTOS: ImageSourcePropType[] = context.keys().map((key: string) => context(key));
 
-// Per ora tutte le foto vengono mostrate come se fossero dell'evento a cui hai partecipato.
+export type Instant = { key: string; source: ImageSourcePropType; mine: boolean };
+
+// Gli "instants" di un evento: prima le mie foto, poi quelle degli altri.
+// Per ora tutte le foto della cartella vengono mostrate come se fossero dell'evento.
 // Più avanti ogni evento avrà le sue foto, in arrivo dal server.
-export function photosForEvent(_eventId: string): ImageSourcePropType[] {
-  return ALL_PHOTOS;
+export function instantsForEvent(eventId: string, myUris: string[]): Instant[] {
+  const mine = myUris.map((uri, i) => ({ key: `${eventId}-me-${i}`, source: { uri } as ImageSourcePropType, mine: true }));
+  const others = ALL_PHOTOS.map((source, i) => ({ key: `${eventId}-o-${i}`, source, mine: false }));
+  return [...mine, ...others];
 }

@@ -2,15 +2,17 @@
 export const colors = {
   bg: '#F4F5F3',
   surface: '#FFFFFF',
+  onPrimary: '#FFFFFF', // testo sui pulsanti colorati
   text: '#22303A',
   muted: '#5B6770',
-  primary: '#3B6678',
+  primary: '#B4532A', // terracotta: unico colore dei pulsanti e degli elementi attivi
   border: '#E1E5E3',
   outline: '#B9C3C1',
-  success: '#4A7556',
-  successBg: '#E3EDE6',
-  successText: '#2F5A3E',
-  accent: '#B4532A', // terracotta: solo per Surprise me
+  success: '#1F9D55', // verde più vivo per le conferme
+  successBg: '#DDF5E7',
+  successText: '#14703C',
+  accent: '#B4532A', // uguale a primary (tenuto per compatibilità)
+  night: '#161C21', // sfondo scuro del visualizzatore di instants
   sand: '#E9E1D0',
   sandText: '#4A3F2A',
 };

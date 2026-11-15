@@ -1,4 +1,4 @@
-import { SectionList, StyleSheet, Text, View } from 'react-native';
+import { Alert, SectionList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { AppButton } from '@/components/AppButton';
@@ -13,7 +13,7 @@ function openMission(id: string) {
 }
 
 export default function TodayScreen() {
-  const { myEvents, allEvents, removeFromMyPage } = useEvents();
+  const { myEvents, allEvents, removeFromMyPage, isCompleted } = useEvents();
   const today = myEvents.filter((e) => e.day === 'Today');
   const later = myEvents.filter((e) => e.day !== 'Today');
 
@@ -24,8 +24,13 @@ export default function TodayScreen() {
 
   function surpriseMe() {
     // Pesca tra gli eventi di oggi sulla mia pagina; se non ce ne sono, tra tutti quelli di oggi.
-    const pool = today.length > 0 ? today : allEvents.filter((e) => e.day === 'Today');
-    if (pool.length === 0) return;
+    // Gli eventi già completati non vengono estratti.
+    const mine = today.filter((e) => !isCompleted(e.id));
+    const pool = mine.length > 0 ? mine : today.length > 0 ? [] : allEvents.filter((e) => e.day === 'Today' && !isCompleted(e.id));
+    if (pool.length === 0) {
+      Alert.alert('All done for today', 'You have completed the missions on your page. Add more events from Discover.');
+      return;
+    }
     openMission(pool[Math.floor(Math.random() * pool.length)].id);
   }
 
@@ -46,7 +51,13 @@ export default function TodayScreen() {
               <EventCard
                 event={item}
                 showDay={item.day !== 'Today'}
-                onPress={() => openMission(item.id)}
+                showAddress
+                note={isCompleted(item.id) ? 'Done ✓ · tap to see the photos' : undefined}
+                onPress={() =>
+                  isCompleted(item.id)
+                    ? router.push({ pathname: '/instants', params: { id: item.id } })
+                    : openMission(item.id)
+                }
                 right={
                   <SmallButton
                     tone="remove"

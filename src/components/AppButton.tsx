@@ -38,6 +38,6 @@ const styles = StyleSheet.create({
     borderColor: colors.outline,
   },
   text: { fontSize: 17 },
-  textPrimary: { color: '#FFFFFF', fontWeight: '700' },
+  textPrimary: { color: colors.onPrimary, fontWeight: '700' },
   textSecondary: { color: colors.text, fontWeight: '500', fontSize: 16 },
 });

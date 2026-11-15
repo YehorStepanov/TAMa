@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 2,
     borderStyle: 'dashed',
-    borderColor: '#9AA6A4',
+    borderColor: colors.outline,
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',

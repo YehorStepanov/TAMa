@@ -24,6 +24,8 @@ export default function TabLayout() {
         tabBarInactiveTintColor: colors.muted,
         tabBarLabelStyle: { fontSize: 14, fontWeight: '700' },
         tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
           height: 84 + insets.bottom,
           paddingTop: 8,
           paddingBottom: 8 + insets.bottom,
@@ -31,6 +33,7 @@ export default function TabLayout() {
       }}>
       <Tabs.Screen name="index" options={{ title: 'Today', tabBarIcon: tabIcon('home', 'home-outline') }} />
       <Tabs.Screen name="discover" options={{ title: 'Discover', tabBarIcon: tabIcon('search', 'search-outline') }} />
+      <Tabs.Screen name="map" options={{ title: 'Map', tabBarIcon: tabIcon('map', 'map-outline') }} />
       <Tabs.Screen name="photos" options={{ title: 'Photos', tabBarIcon: tabIcon('images', 'images-outline') }} />
     </Tabs>
   );
