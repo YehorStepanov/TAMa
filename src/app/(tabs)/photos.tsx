@@ -10,7 +10,8 @@ const ROTATIONS = ['-8deg', '6deg', '0deg'];
 
 // Una "pila" di instants, come nelle foto di Instagram: le prime tre foto, un po' inclinate.
 function Stack({ instants, emoji }: { instants: Instant[]; emoji: string }) {
-  const shown = instants.slice(0, 3).reverse(); // l'ultima disegnata resta sopra
+  // L'anteprima usa solo immagini (i video non hanno miniatura): l'ultima disegnata resta sopra.
+  const shown = instants.filter((i) => i.kind === 'image').slice(0, 3).reverse();
   if (shown.length === 0) {
     return (
       <View style={styles.stack}>
@@ -25,7 +26,7 @@ function Stack({ instants, emoji }: { instants: Instant[]; emoji: string }) {
       {shown.map((it, i) => (
         <Image
           key={it.key}
-          source={it.source}
+          source={it.source as number}
           resizeMode="cover"
           style={[styles.stackCard, { transform: [{ rotate: ROTATIONS[i % 3] }] }]}
         />
@@ -36,9 +37,10 @@ function Stack({ instants, emoji }: { instants: Instant[]; emoji: string }) {
 
 // Bacheca foto: una pila per ogni evento a cui ho partecipato.
 export default function PhotosScreen() {
-  const { attendedEvents, myPhotos } = useEvents();
+  const { attendedEvents, submissions } = useEvents();
 
-  const mineEvent = attendedEvents.find((e) => (myPhotos[e.id] ?? []).length > 0);
+  const mineEvent = attendedEvents.find((e) => submissions[e.id]);
+  const mine = mineEvent ? submissions[mineEvent.id] : undefined;
   const received = MOCK_RECEIVED.reduce((n, r) => n + r.count, 0);
 
   return (
@@ -59,7 +61,7 @@ export default function PhotosScreen() {
             <View style={styles.grid}>
               {attendedEvents.map((event) => {
                 // L'anteprima mostra solo le foto degli altri: la mia non si può votare, la vedo nella scheda "Your instant".
-                const instants = instantsForEvent(event.id, []);
+                const instants = instantsForEvent(event.id);
                 return (
                   <Pressable
                     key={event.id}
@@ -75,19 +77,29 @@ export default function PhotosScreen() {
               })}
             </View>
 
-            {mineEvent && (
+            {mineEvent && mine && (
               <View style={styles.card}>
                 <View style={styles.cardRow}>
-                  <Image source={{ uri: myPhotos[mineEvent.id][0] }} style={styles.thumb} />
+                  {mine.kind === 'image' ? (
+                    <Image source={{ uri: mine.uri }} style={styles.thumb} />
+                  ) : (
+                    <View style={[styles.thumb, styles.thumbVideo]}>
+                      <Text style={{ fontSize: 24 }}>🎬</Text>
+                    </View>
+                  )}
                   <View style={{ flex: 1 }}>
                     <Text style={styles.cardTitle}>Your instant · {mineEvent.title}</Text>
-                    <Text style={styles.eventLine}>Only you can see this</Text>
+                    <Text style={styles.eventLine}>
+                      {mine.type === 'group' ? '👥 Group' : '👤 Solo'} · {mine.level} · +{mine.points} pts
+                    </Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={styles.big}>{received}</Text>
                     <Text style={styles.eventLine}>reactions</Text>
                   </View>
                 </View>
+                <Text style={styles.challengeLine}>{mine.challenge}</Text>
+                <Text style={styles.eventLine}>Only you can see this</Text>
                 <View style={styles.emojiRow}>
                   {MOCK_RECEIVED.map((r) => (
                     <Text key={r.emoji} style={styles.emojiCount}>
@@ -132,7 +144,7 @@ const styles = StyleSheet.create({
     borderColor: colors.surface,
     backgroundColor: colors.border,
   },
-  stackEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3DED3' },
+  stackEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.tint },
   eventTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
   eventLine: { fontSize: 13, color: colors.muted },
   card: {
@@ -145,6 +157,8 @@ const styles = StyleSheet.create({
   },
   cardRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   thumb: { width: 52, height: 52, borderRadius: 12, backgroundColor: colors.border },
+  thumbVideo: { alignItems: 'center', justifyContent: 'center' },
+  challengeLine: { fontSize: 15, fontWeight: '700', color: colors.text, marginTop: 10 },
   cardTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
   big: { fontSize: 24, fontWeight: '700', color: colors.text },
   emojiRow: { flexDirection: 'row', gap: 14, marginTop: 10 },

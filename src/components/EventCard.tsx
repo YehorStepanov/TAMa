@@ -22,6 +22,9 @@ export function EventCard({ event, showDay = false, note, showAddress = false, o
       disabled={!onPress}
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}>
+      <View style={styles.thumb}>
+        <Text style={styles.thumbEmoji}>{event.emoji}</Text>
+      </View>
       <View style={styles.info}>
         <Text style={styles.title}>{event.title}</Text>
         <Text style={styles.line}>
@@ -47,6 +50,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: sizes.gap,
   },
+  thumb: { width: 56, height: 56, borderRadius: 16, backgroundColor: colors.tint, alignItems: 'center', justifyContent: 'center' },
+  thumbEmoji: { fontSize: 28 },
   info: { flex: 1 },
   title: { fontSize: 17, fontWeight: '700', color: colors.text },
   line: { fontSize: 14, color: colors.muted, marginTop: 2 },

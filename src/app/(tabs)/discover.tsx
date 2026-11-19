@@ -3,6 +3,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/AppButton';
 import { EventCard } from '@/components/EventCard';
+import { FadeInView } from '@/components/FadeInView';
 import { SmallButton } from '@/components/SmallButton';
 import { EventFace, SwipeCard, type SwipeCardHandle } from '@/components/SwipeCard';
 import { StatusStrip } from '@/components/StatusStrip';
@@ -78,9 +79,10 @@ export default function DiscoverScreen() {
             data={listEvents}
             keyExtractor={(e) => e.id}
             contentContainerStyle={{ gap: sizes.gap, paddingTop: 12, paddingBottom: 12 }}
-            renderItem={({ item }) => {
+            renderItem={({ item, index }) => {
               const added = isOnMyPage(item.id);
               return (
+                <FadeInView index={index}>
                 <EventCard
                   event={item}
                   showDay
@@ -94,6 +96,7 @@ export default function DiscoverScreen() {
                     )
                   }
                 />
+                </FadeInView>
               );
             }}
           />
@@ -127,9 +130,20 @@ export default function DiscoverScreen() {
 
       {mode === 'cards' && current && (
         <View style={styles.actions}>
-          <RoundButton label="Skip" symbol="✕" size={68} onPress={() => cardRef.current?.swipe('left')} />
-          <RoundButton label="Undo" symbol="↩" size={52} disabled={history.length === 0} onPress={undo} />
-          <RoundButton label="Add" symbol="♥" size={68} filled onPress={() => cardRef.current?.swipe('right')} />
+          <View style={{ flex: 1 }}>
+            <ActionPill label="✕  Skip" onPress={() => cardRef.current?.swipe('left')} />
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Undo"
+            disabled={history.length === 0}
+            onPress={undo}
+            style={[styles.undo, history.length === 0 && { opacity: 0.4 }]}>
+            <Text style={styles.undoText}>↩</Text>
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <ActionPill label="♥  Add" filled onPress={() => cardRef.current?.swipe('right')} />
+          </View>
         </View>
       )}
     </SafeAreaView>
@@ -148,42 +162,15 @@ function Segment({ label, active, onPress }: { label: string; active: boolean; o
   );
 }
 
-function RoundButton({
-  label,
-  symbol,
-  size,
-  filled = false,
-  disabled = false,
-  onPress,
-}: {
-  label: string;
-  symbol: string;
-  size: number;
-  filled?: boolean;
-  disabled?: boolean;
-  onPress: () => void;
-}) {
+function ActionPill({ label, filled = false, onPress }: { label: string; filled?: boolean; onPress: () => void }) {
   return (
-    <View style={{ alignItems: 'center', gap: 6, opacity: disabled ? 0.4 : 1 }}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        disabled={disabled}
-        onPress={onPress}
-        style={{
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: filled ? colors.primary : colors.surface,
-          borderWidth: filled ? 0 : 2,
-          borderColor: colors.outline,
-        }}>
-        <Text style={{ fontSize: size / 2, color: filled ? colors.onPrimary : colors.muted }}>{symbol}</Text>
-      </Pressable>
-      <Text style={styles.btnLabel}>{label}</Text>
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={[styles.pill, filled ? styles.pillFilled : styles.pillOutline]}>
+      <Text style={[styles.pillText, { color: filled ? colors.onPrimary : colors.text }]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -217,8 +204,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     opacity: 0.9,
   },
-  actions: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 26, paddingTop: 6, paddingBottom: 14 },
-  btnLabel: { fontSize: 13, fontWeight: '700', color: colors.muted },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: sizes.margin, paddingTop: 6, paddingBottom: 14 },
+  pill: { height: sizes.buttonPrimary, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  pillFilled: { backgroundColor: colors.primary },
+  pillOutline: { borderWidth: 1.5, borderColor: colors.outline },
+  pillText: { fontSize: 16, fontWeight: '700' },
+  undo: { width: 52, height: 52, borderRadius: 26, borderWidth: 1.5, borderColor: colors.outline, alignItems: 'center', justifyContent: 'center' },
+  undoText: { fontSize: 22, color: colors.muted },
   empty: {
     flex: 1,
     backgroundColor: colors.surface,

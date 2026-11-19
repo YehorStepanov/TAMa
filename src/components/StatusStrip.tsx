@@ -1,12 +1,14 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { useEvents } from '@/context/EventsContext';
 import { colors } from '@/theme';
 
 // Barra in alto: solo informazioni, niente di cliccabile (zona difficile da raggiungere col pollice).
 export function StatusStrip() {
+  const { points } = useEvents();
   return (
     <View style={styles.row}>
       <Text style={[styles.chip, { color: colors.accent }]}>3 week streak</Text>
-      <Text style={styles.chip}>120 pts</Text>
+      <Text style={styles.chip}>{points} pts</Text>
       <Text style={[styles.chip, { marginLeft: 'auto' }]}>Lv 3</Text>
     </View>
   );

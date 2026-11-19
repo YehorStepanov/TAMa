@@ -1,19 +1,39 @@
-import type { ImageSourcePropType } from 'react-native';
+import type { ChallengeType } from '@/data/challenges';
 
-// Foto "caricate dagli altri utenti", per ora lette dalla cartella assets/event-photos
-// (una sola cartella, senza sottocartelle). Basta copiarci dentro le immagini.
+// Foto e video "caricati dagli altri utenti", per ora letti dalla cartella assets/event-photos
+// (una sola cartella, senza sottocartelle). Basta copiarci dentro i file (jpg, png, webp, mp4, mov).
 // NB: gli argomenti di require.context devono restare valori fissi, non variabili.
-const context = (require as any).context('../../assets/event-photos', false, /\.(jpe?g|png|webp)$/i);
+const context = (require as any).context('../../assets/event-photos', false, /\.(jpe?g|png|webp|mp4|mov|m4v)$/i);
 
-const ALL_PHOTOS: ImageSourcePropType[] = context.keys().map((key: string) => context(key));
+export type MediaSource = number | { uri: string };
 
-export type Instant = { key: string; source: ImageSourcePropType; mine: boolean };
+export type Instant = {
+  key: string;
+  source: MediaSource;
+  kind: 'image' | 'video';
+  challenge: string; // la sfida che ha fatto chi ha inviato il contenuto
+  type: ChallengeType;
+};
 
-// Gli "instants" di un evento: prima le mie foto, poi quelle degli altri.
-// Per ora tutte le foto della cartella vengono mostrate come se fossero dell'evento.
-// Più avanti ogni evento avrà le sue foto, in arrivo dal server.
-export function instantsForEvent(eventId: string, myUris: string[]): Instant[] {
-  const mine = myUris.map((uri, i) => ({ key: `${eventId}-me-${i}`, source: { uri } as ImageSourcePropType, mine: true }));
-  const others = ALL_PHOTOS.map((source, i) => ({ key: `${eventId}-o-${i}`, source, mine: false }));
-  return [...mine, ...others];
+// MOCK: finché non c'è il server, a ogni file della cartella assegniamo una sfida a rotazione.
+const MOCK: { challenge: string; type: ChallengeType }[] = [
+  { challenge: 'Selfie with at least 3 people', type: 'group' },
+  { challenge: 'Strike a funny pose', type: 'solo' },
+  { challenge: 'Ask someone to take a photo of you', type: 'group' },
+  { challenge: 'Show the mood of the evening in one photo', type: 'solo' },
+  { challenge: 'Strike the same pose as another person', type: 'group' },
+];
+
+const ALL: Instant[] = (context.keys() as string[]).map((key, i) => ({
+  key,
+  source: context(key),
+  kind: /\.(mp4|mov|m4v)$/i.test(key) ? 'video' : 'image',
+  ...MOCK[i % MOCK.length],
+}));
+
+// Gli instants di un evento: solo quelli degli altri (i miei non si possono votare).
+// Per ora tutti i file della cartella vengono mostrati come se fossero dell'evento.
+// Più avanti ogni evento avrà i suoi, in arrivo dal server.
+export function instantsForEvent(_eventId: string): Instant[] {
+  return ALL;
 }

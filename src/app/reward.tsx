@@ -6,10 +6,9 @@ import { useEvents } from '@/context/EventsContext';
 import { colors, sizes } from '@/theme';
 
 export default function RewardScreen() {
-  const { id, challenge } = useLocalSearchParams<{ id: string; challenge?: string }>();
+  const { id, points, challenge } = useLocalSearchParams<{ id: string; points?: string; challenge?: string }>();
   const { allEvents } = useEvents();
   const event = allEvents.find((e) => e.id === id);
-  const points = challenge ? 70 : 50; // 50 per la missione, +20 con la sfida
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -17,13 +16,14 @@ export default function RewardScreen() {
         <View style={styles.check}>
           <Text style={styles.checkMark}>✓</Text>
         </View>
-        <Text style={styles.title}>Mission complete</Text>
-        <Text style={styles.subtitle}>{event ? `Photo sent for ${event.title}.` : 'Photo sent.'}</Text>
+        <Text style={styles.title}>Challenge complete</Text>
+        <Text style={styles.subtitle}>{event ? `Sent for ${event.title}.` : 'Sent.'}</Text>
         <View style={styles.card}>
-          <Text style={styles.big}>+{points}</Text>
+          <Text style={styles.big}>+{points ?? 50}</Text>
           <Text style={styles.small}>points</Text>
         </View>
-        <Text style={styles.note}>You can now see the photos from this event in the Photo wall.</Text>
+        {challenge ? <Text style={styles.note}>{challenge}</Text> : null}
+        <Text style={styles.note}>You can now see the instants from this event in the Photo wall.</Text>
       </View>
       <View style={styles.bottom}>
         <AppButton label="See photo wall" onPress={() => router.replace('/photos')} />

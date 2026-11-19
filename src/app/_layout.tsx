@@ -10,10 +10,10 @@ export default function RootLayout() {
       <NavigationBar hidden />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="mission" />
-        <Stack.Screen name="instants" />
-        <Stack.Screen name="photo-proof" />
-        <Stack.Screen name="reward" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="mission" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="instants" options={{ animation: 'fade_from_bottom' }} />
+        <Stack.Screen name="photo-proof" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="reward" options={{ gestureEnabled: false, animation: 'fade' }} />
       </Stack>
     </EventsProvider>
   );

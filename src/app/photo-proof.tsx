@@ -4,73 +4,135 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { AppButton } from '@/components/AppButton';
 import { useEvents } from '@/context/EventsContext';
+import { MAX_VIDEO_SECONDS, type ChallengeType, type Level } from '@/data/challenges';
 import { colors, sizes } from '@/theme';
 
+type Picked = { uri: string; kind: 'image' | 'video' };
+
+function VideoPreview({ uri }: { uri: string }) {
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = true;
+  });
+  return <VideoView player={player} style={styles.media} contentFit="contain" nativeControls />;
+}
+
 export default function PhotoProofScreen() {
-  const { id, challenge } = useLocalSearchParams<{ id: string; challenge?: string }>();
-  const { allEvents, addMyPhoto } = useEvents();
+  const { id, challenge, type, level, points, media } = useLocalSearchParams<{
+    id: string;
+    challenge?: string;
+    type?: string;
+    level?: string;
+    points?: string;
+    media?: string;
+  }>();
+  const { allEvents, addSubmission } = useEvents();
   const event = allEvents.find((e) => e.id === id);
-  const [uri, setUri] = useState<string | null>(null);
+  const [picked, setPicked] = useState<Picked | null>(null);
+
+  // Cosa chiede la sfida: solo foto, solo video, oppure indifferente.
+  const wantsVideo = media === 'video';
+  const allowsVideo = media === 'video' || media === 'any';
+
+  function remember(res: ImagePicker.ImagePickerResult) {
+    if (res.canceled) return;
+    const asset = res.assets[0];
+    if (asset.type === 'video' && asset.duration != null && asset.duration > MAX_VIDEO_SECONDS * 1000) {
+      Alert.alert('Video too long', `Videos can be ${MAX_VIDEO_SECONDS} seconds at most. Choose a shorter one.`);
+      return;
+    }
+    setPicked({ uri: asset.uri, kind: asset.type === 'video' ? 'video' : 'image' });
+  }
 
   async function takePhoto() {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Camera permission needed', 'Allow camera access in the phone settings, or choose a photo from the gallery.');
+      Alert.alert('Camera permission needed', 'Allow camera access in the phone settings, or choose a file from the gallery.');
       return;
     }
-    const res = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7 });
-    if (!res.canceled) setUri(res.assets[0].uri);
+    remember(await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7 }));
+  }
+
+  async function recordVideo() {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Camera permission needed', 'Allow camera access in the phone settings, or choose a file from the gallery.');
+      return;
+    }
+    remember(await ImagePicker.launchCameraAsync({ mediaTypes: ['videos'], videoMaxDuration: MAX_VIDEO_SECONDS, quality: 0.7 }));
   }
 
   async function pickFromGallery() {
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
-    if (!res.canceled) setUri(res.assets[0].uri);
+    const types: ImagePicker.MediaType[] = media === 'video' ? ['videos'] : media === 'any' ? ['images', 'videos'] : ['images'];
+    remember(await ImagePicker.launchImageLibraryAsync({ mediaTypes: types, quality: 0.7 }));
   }
 
   function sendProof() {
-    if (!event || !uri) return;
-    addMyPhoto(event.id, uri);
-    router.replace({ pathname: '/reward', params: { id: event.id, challenge: challenge ?? '' } });
+    if (!event || !picked) return;
+    const pts = Number(points) || 50;
+    addSubmission(event.id, {
+      uri: picked.uri,
+      kind: picked.kind,
+      challenge: challenge ?? '',
+      type: (type as ChallengeType) ?? 'solo',
+      level: (level as Level) ?? 'medium',
+      points: pts,
+    });
+    router.replace({ pathname: '/reward', params: { id: event.id, points: String(pts), challenge: challenge ?? '' } });
   }
 
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.body}>
-        <Text style={styles.title}>Show you were there</Text>
-        {event && <Text style={styles.subtitle}>{event.title} · {event.place}</Text>}
+        <Text style={styles.title}>{wantsVideo ? 'Show us in a video' : 'Show you were there'}</Text>
+        {event && (
+          <Text style={styles.subtitle}>
+            {event.title} · {event.place}
+          </Text>
+        )}
 
         {challenge ? (
           <View style={styles.challenge}>
-            <Text style={styles.challengeLabel}>YOUR RANDOM CHALLENGE</Text>
+            <Text style={styles.challengeLabel}>
+              YOUR CHALLENGE · {type === 'group' ? 'GROUP' : 'SOLO'} · +{points} PTS
+            </Text>
             <Text style={styles.challengeText}>{challenge}</Text>
           </View>
         ) : null}
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={uri ? 'Take another photo' : 'Take a photo'}
-          onPress={takePhoto}
+          accessibilityLabel={wantsVideo ? 'Record a video' : 'Take a photo'}
+          onPress={wantsVideo ? recordVideo : takePhoto}
           style={({ pressed }) => [styles.preview, pressed && { opacity: 0.85 }]}>
-          {uri ? (
-            <Image source={{ uri }} style={styles.image} resizeMode="cover" accessibilityLabel="Your photo" />
+          {picked ? (
+            picked.kind === 'video' ? (
+              <VideoPreview uri={picked.uri} />
+            ) : (
+              <Image source={{ uri: picked.uri }} style={styles.media} resizeMode="cover" accessibilityLabel="Your photo" />
+            )
           ) : (
             <View style={styles.placeholder}>
-              <Ionicons name="camera-outline" size={88} color={colors.primary} />
+              <Ionicons name={wantsVideo ? 'videocam-outline' : 'camera-outline'} size={64} color={colors.primary} />
+              <Text style={styles.placeholderText}>{wantsVideo ? `Tap to record (max ${MAX_VIDEO_SECONDS} s)` : 'Tap to take a photo'}</Text>
             </View>
           )}
         </Pressable>
       </View>
 
       <View style={styles.bottom}>
-        {uri ? (
+        {picked ? (
           <>
             <AppButton label="Send proof" onPress={sendProof} />
             <AppButton variant="secondary" label="Choose another from gallery" onPress={pickFromGallery} />
           </>
         ) : (
-          <AppButton label="Choose from gallery" onPress={pickFromGallery} />
+          <>
+            <AppButton label="Choose from gallery" onPress={pickFromGallery} />
+            {allowsVideo && !wantsVideo && <AppButton variant="secondary" label="Record a video" onPress={recordVideo} />}
+          </>
         )}
       </View>
     </SafeAreaView>
@@ -96,7 +158,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  image: { width: '100%', height: '100%' },
+  media: { width: '100%', height: '100%' },
   placeholder: { alignItems: 'center', gap: 8 },
+  placeholderText: { fontSize: 16, fontWeight: '700', color: colors.muted },
   bottom: { paddingHorizontal: sizes.margin, paddingVertical: 12, gap: 8 },
 });

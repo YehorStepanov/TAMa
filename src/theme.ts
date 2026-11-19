@@ -13,6 +13,7 @@ export const colors = {
   successText: '#14703C',
   accent: '#B4532A', // uguale a primary (tenuto per compatibilità)
   night: '#161C21', // sfondo scuro del visualizzatore di instants
+  tint: '#F3DED3', // sfondo caldo delle miniature degli eventi
   sand: '#E9E1D0',
   sandText: '#4A3F2A',
 };

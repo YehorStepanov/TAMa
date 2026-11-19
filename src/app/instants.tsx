@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Image, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Dimensions, Image, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { useEvents } from '@/context/EventsContext';
-import { instantsForEvent } from '@/data/photos';
+import { instantsForEvent, type MediaSource } from '@/data/photos';
 import { REACTION_EMOJIS } from '@/data/reactions';
 import { colors } from '@/theme';
+
+const SCREEN_W = Dimensions.get('window').width;
+const THRESHOLD = 90; // quanto trascinare per cambiare foto
 
 type Burst = { id: number; emoji: string; x: number };
 
@@ -31,31 +35,67 @@ function FloatingEmoji({ emoji, x, onDone }: { emoji: string; x: number; onDone:
   );
 }
 
+// Un video che parte da solo e si ripete.
+function VideoSlide({ source }: { source: MediaSource }) {
+  const player = useVideoPlayer(source, (p) => {
+    p.loop = true;
+    p.play();
+  });
+  return <VideoView player={player} style={{ width: '100%', height: '100%' }} contentFit="contain" nativeControls />;
+}
+
 export default function InstantsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { allEvents } = useEvents();
   const event = allEvents.find((e) => e.id === id);
   // Solo le foto degli altri: non posso reagire alla mia.
-  const instants = instantsForEvent(id ?? '', []);
+  const instants = instantsForEvent(id ?? '');
 
   const [index, setIndex] = useState(0);
   const [bursts, setBursts] = useState<Burst[]>([]);
   const burstId = useRef(0);
-
   const last = instants.length - 1;
-  const goNext = () => setIndex((i) => Math.min(i + 1, last));
-  const goBack = () => setIndex((i) => Math.max(i - 1, 0));
-  // Il gesto vede sempre le funzioni più recenti.
-  const nav = useRef({ goNext, goBack });
-  nav.current = { goNext, goBack };
+
+  // La foto segue il dito (pan), si inclina, e la nuova entra con un piccolo "pop" (enter).
+  const pan = useRef(new Animated.Value(0)).current;
+  const enter = useRef(new Animated.Value(1)).current;
+  const busy = useRef(false);
+  const indexRef = useRef(0);
+  indexRef.current = index;
+  const lastRef = useRef(last);
+  lastRef.current = last;
+
+  function fling(delta: 1 | -1) {
+    const target = indexRef.current + delta;
+    if (busy.current || target < 0 || target > lastRef.current) {
+      Animated.spring(pan, { toValue: 0, useNativeDriver: false }).start();
+      return;
+    }
+    busy.current = true;
+    Animated.timing(pan, { toValue: delta === 1 ? -SCREEN_W * 1.2 : SCREEN_W * 1.2, duration: 200, useNativeDriver: false }).start(() => {
+      setIndex(target);
+      pan.setValue(0);
+      enter.setValue(0.9);
+      Animated.spring(enter, { toValue: 1, friction: 6, useNativeDriver: false }).start();
+      busy.current = false;
+    });
+  }
+  const flingRef = useRef(fling);
+  flingRef.current = fling;
 
   const swipe = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 15 && Math.abs(g.dx) > Math.abs(g.dy),
-      onPanResponderRelease: (_, g) => {
-        if (g.dx < -50) nav.current.goNext();
-        else if (g.dx > 50) nav.current.goBack();
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy),
+      onPanResponderMove: (_, g) => {
+        const atEdge = (g.dx < 0 && indexRef.current >= lastRef.current) || (g.dx > 0 && indexRef.current <= 0);
+        pan.setValue(atEdge ? g.dx * 0.25 : g.dx); // ai bordi la foto "resiste"
       },
+      onPanResponderRelease: (_, g) => {
+        if (g.dx < -THRESHOLD) flingRef.current(1);
+        else if (g.dx > THRESHOLD) flingRef.current(-1);
+        else Animated.spring(pan, { toValue: 0, useNativeDriver: false }).start();
+      },
+      onPanResponderTerminate: () => Animated.spring(pan, { toValue: 0, useNativeDriver: false }).start(),
     }),
   ).current;
 
@@ -67,6 +107,8 @@ export default function InstantsScreen() {
   const current = instants[index];
   const behind = [instants[index + 2], instants[index + 1]].filter(Boolean);
   const rotations = ['6deg', '-7deg'];
+  const rotate = pan.interpolate({ inputRange: [-SCREEN_W, 0, SCREEN_W], outputRange: ['-14deg', '0deg', '14deg'] });
+  const dim = pan.interpolate({ inputRange: [-SCREEN_W, 0, SCREEN_W], outputRange: [0.4, 1, 0.4] });
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -89,9 +131,19 @@ export default function InstantsScreen() {
             {behind.map((it, i) => (
               <View key={it.key} style={[styles.photo, styles.behind, { transform: [{ rotate: rotations[i] }] }]} />
             ))}
-            <View style={[styles.photo, styles.frame]}>
-              <Image source={current.source} resizeMode="contain" style={{ width: '100%', height: '100%' }} accessibilityLabel="Instant" />
-            </View>
+            <Animated.View
+              style={[styles.photo, { opacity: dim, transform: [{ translateX: pan }, { rotate }, { scale: enter }] }]}>
+              <View style={[styles.fill, styles.frame]}>
+                {current.kind === 'video' ? (
+                  <VideoSlide key={current.key} source={current.source} />
+                ) : (
+                  <Image source={current.source as number} resizeMode="contain" style={{ width: '100%', height: '100%' }} accessibilityLabel="Instant" />
+                )}
+              </View>
+              <Text style={styles.challengeTag}>
+                {current.type === 'group' ? '👥' : '👤'} {current.challenge}
+              </Text>
+            </Animated.View>
           </>
         ) : (
           <View style={[styles.photo, styles.noPhotos]}>
@@ -112,10 +164,10 @@ export default function InstantsScreen() {
       </View>
 
       <View style={styles.nav}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Previous photo" disabled={index === 0} onPress={goBack} style={[styles.pill, index === 0 && styles.pillOff]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Previous photo" disabled={index === 0} onPress={() => fling(-1)} style={[styles.pill, index === 0 && styles.pillOff]}>
           <Text style={styles.pillText}>‹ Back</Text>
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Next photo" disabled={index >= last} onPress={goNext} style={[styles.pill, index >= last && styles.pillOff]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Next photo" disabled={index >= last} onPress={() => fling(1)} style={[styles.pill, index >= last && styles.pillOff]}>
           <Text style={styles.pillText}>Next ›</Text>
         </Pressable>
       </View>
@@ -131,21 +183,23 @@ const styles = StyleSheet.create({
   title: { fontSize: 16, fontWeight: '700', color: colors.onPrimary },
   sub: { fontSize: 13, color: 'rgba(255,255,255,0.8)' },
   stage: { flex: 1, marginVertical: 12, marginHorizontal: 8 },
-  photo: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 30, backgroundColor: colors.border },
+  photo: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 30 },
+  fill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   behind: { backgroundColor: 'rgba(255,255,255,0.14)' },
   // La foto si vede intera (non ingrandita): resizeMode contain dentro una cornice scura.
-  frame: { overflow: 'hidden', backgroundColor: 'rgba(0,0,0,0.35)' },
-  mine: {
+  frame: { overflow: 'hidden', borderRadius: 30, backgroundColor: 'rgba(0,0,0,0.35)' },
+  challengeTag: {
     position: 'absolute',
-    top: 16,
-    left: 16,
-    backgroundColor: colors.surface,
-    color: colors.primary,
-    fontSize: 13,
+    left: 14,
+    right: 14,
+    bottom: 14,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    color: colors.onPrimary,
+    fontSize: 14,
     fontWeight: '700',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
     overflow: 'hidden',
   },
   noPhotos: { alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.1)' },

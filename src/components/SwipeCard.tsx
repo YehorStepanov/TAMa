@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   face: { flex: 1 },
-  hero: { height: '48%', backgroundColor: '#F3DED3', alignItems: 'center', justifyContent: 'center' },
+  hero: { height: '48%', backgroundColor: colors.tint, alignItems: 'center', justifyContent: 'center' },
   emoji: { fontSize: 88 },
   tag: {
     position: 'absolute',
