@@ -10,6 +10,9 @@ export function dayLabel(d: Date, now = new Date()): string {
   const tomorrow = new Date(now);
   tomorrow.setDate(now.getDate() + 1);
   if (sameDay(d, tomorrow)) return 'Tomorrow';
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (sameDay(d, yesterday)) return 'Yesterday';
   return `${WEEKDAYS[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`;
 }
 

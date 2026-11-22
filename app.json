@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Daily Party Quest",
+    "name": "AHOJ",
     "slug": "daily-party-quest",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "dailypartyquest",
+    "scheme": "ahoj",
     "userInterfaceStyle": "light",
     "ios": {
       "icon": "./assets/images/icon.png",
@@ -48,8 +48,8 @@
       [
         "expo-image-picker",
         {
-          "cameraPermission": "Daily Party Quest uses the camera to take the photo for your challenge.",
-          "photosPermission": "Daily Party Quest needs your photos so you can choose one for your challenge."
+          "cameraPermission": "AHOJ uses the camera to take the photo for your challenge.",
+          "photosPermission": "AHOJ needs your photos so you can choose one for your challenge."
         }
       ],
       "expo-video",

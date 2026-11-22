@@ -14,8 +14,10 @@ import {
   drawChallenge,
   pointsFor,
   type Challenge,
+  type ChallengeType,
   type Level,
 } from '@/data/challenges';
+import { photoStatus } from '@/data/events';
 import { colors, sizes } from '@/theme';
 
 const MEDIA_LABEL = { photo: 'Photo', video: 'Video', any: 'Photo or video' } as const;
@@ -28,13 +30,22 @@ export default function MissionScreen() {
 
   // Livello di partenza: medio. Si cambia qui, quando si sceglie l'evento.
   const [level, setLevel] = useState<Level>(DEFAULT_LEVEL);
-  const [challenge, setChallenge] = useState<Challenge>(() => drawChallenge(DEFAULT_LEVEL, custom));
+  // Singola o di gruppo: scegli tu. Si parte da "solo".
+  const [type, setType] = useState<ChallengeType>('solo');
+  const [challenge, setChallenge] = useState<Challenge>(() => drawChallenge(DEFAULT_LEVEL, 'solo', custom));
   const points = pointsFor(level);
 
   function changeLevel(next: Level) {
     setLevel(next);
-    setChallenge(drawChallenge(next, custom));
+    setChallenge(drawChallenge(next, type, custom));
   }
+
+  function changeType(next: ChallengeType) {
+    setType(next);
+    setChallenge(drawChallenge(level, next, custom));
+  }
+
+  const status = event ? photoStatus(event) : 'closed';
 
   // Una sfida per evento: se l'ho già completata non si può rifare.
   if (!event || isCompleted(event.id)) {
@@ -70,7 +81,26 @@ export default function MissionScreen() {
           onChange={changeLevel}
           options={LEVELS.map((l) => ({ key: l.key, label: l.label, sub: `${l.points} pts` }))}
         />
+        <View style={{ height: 8 }} />
+        <Segmented
+          value={type}
+          onChange={changeType}
+          options={[
+            { key: 'solo', label: '👤 Solo', sub: 'just me' },
+            { key: 'group', label: '👥 Group', sub: 'with others' },
+          ]}
+        />
         </FadeInView>
+
+        {status !== 'open' && (
+          <View style={styles.notice}>
+            <Text style={styles.noticeText}>
+              {status === 'upcoming'
+                ? `This event has not started yet. You can send your photo from ${event.day}, ${event.time.split('–')[0]}.`
+                : 'The photo window for this event is closed (it lasts until the day after the event).'}
+            </Text>
+          </View>
+        )}
 
         <FadeInView key={challenge.text} index={2} distance={24}>
         <View style={styles.challenge}>
@@ -83,7 +113,7 @@ export default function MissionScreen() {
           <AppButton
             variant="secondary"
             label="Draw another challenge"
-            onPress={() => setChallenge((c) => drawChallenge(level, custom, c.text))}
+            onPress={() => setChallenge((c) => drawChallenge(level, type, custom, c.text))}
           />
         </View>
         </FadeInView>
@@ -96,6 +126,7 @@ export default function MissionScreen() {
       <View style={styles.bottom}>
         <AppButton
           label="Accept challenge"
+          disabled={status !== 'open'}
           onPress={() =>
             router.push({
               pathname: '/photo-proof',
@@ -139,6 +170,8 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: sizes.gap,
   },
+  notice: { backgroundColor: colors.sand, borderRadius: sizes.radius, padding: 14 },
+  noticeText: { fontSize: 15, lineHeight: 21, fontWeight: '600', color: colors.sandText },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     overflow: 'hidden',

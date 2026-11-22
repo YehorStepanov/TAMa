@@ -1,4 +1,4 @@
-// Colori e misure del design di Daily Party Quest.
+// Colori e misure del design di AHOJ.
 export const colors = {
   bg: '#F4F5F3',
   surface: '#FFFFFF',

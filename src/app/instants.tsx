@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Dimensions, Image, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Dimensions, Image, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
+import { SkeletonBox } from '@/components/Skeleton';
 import { useEvents } from '@/context/EventsContext';
 import { fromApiPhoto, type Instant } from '@/data/photos';
 import { REACTIONS } from '@/data/reactions';
@@ -132,8 +133,8 @@ export default function InstantsScreen() {
 
       <View style={styles.stage} {...swipe.panHandlers}>
         {instants === null ? (
-          <View style={[styles.photo, styles.noPhotos]}>
-            <ActivityIndicator color={colors.onPrimary} />
+          <View style={styles.photo}>
+            <SkeletonBox style={{ flex: 1, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.12)' }} />
           </View>
         ) : current ? (
           <>

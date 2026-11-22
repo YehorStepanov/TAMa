@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import { fromApi, type EventItem } from '@/data/events';
+import { fromApi, isVisible, type EventItem } from '@/data/events';
 import type { ChallengeType, Level } from '@/data/challenges';
 import { ApiError, getEvents, getMyPhotos, uploadPhoto, type ApiPhoto } from '@/lib/api';
 
@@ -9,6 +9,7 @@ export type SubmissionMeta = { challenge: string; type: ChallengeType; level: Le
 
 type EventsValue = {
   allEvents: EventItem[];
+  visibleEvents: EventItem[]; // senza quelli finiti da più di due giorni
   loading: boolean;
   error: string | null;
   reload: () => Promise<void>;
@@ -75,11 +76,12 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     AsyncStorage.setItem('myIds', JSON.stringify(next));
   }
 
-  const myEvents = allEvents.filter((e) => myIds.includes(e.id)).sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+  const myEvents = allEvents.filter((e) => myIds.includes(e.id) && isVisible(e)).sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
   const completedIds = myPhotos.map((p) => p.event_id);
 
   const value: EventsValue = {
     allEvents,
+    visibleEvents: allEvents.filter((e) => isVisible(e)),
     loading,
     error,
     reload,

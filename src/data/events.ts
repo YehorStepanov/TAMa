@@ -39,3 +39,23 @@ export function fromApi(e: ApiEvent): EventItem {
     lng: e.lng,
   };
 }
+
+const HOUR = 60 * 60 * 1000;
+
+// Un evento resta visibile finché non sono passati più di due giorni dalla sua fine (si vedono anche quelli di ieri).
+export const VISIBLE_AFTER_END_MS = 48 * HOUR;
+// La foto si può inviare dall'inizio dell'evento fino a 24 ore dopo la fine (anche il giorno dopo).
+export const PHOTO_WINDOW_AFTER_END_MS = 24 * HOUR;
+
+export function isVisible(e: EventItem, now = Date.now()): boolean {
+  return e.endsAt.getTime() > now - VISIBLE_AFTER_END_MS;
+}
+
+export type PhotoStatus = 'upcoming' | 'open' | 'closed';
+
+// 'upcoming' = non è ancora iniziato, 'open' = si può inviare la foto, 'closed' = troppo tardi.
+export function photoStatus(e: EventItem, now = Date.now()): PhotoStatus {
+  if (now < e.startsAt.getTime()) return 'upcoming';
+  if (now > e.endsAt.getTime() + PHOTO_WINDOW_AFTER_END_MS) return 'closed';
+  return 'open';
+}

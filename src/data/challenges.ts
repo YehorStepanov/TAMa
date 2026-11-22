@@ -43,6 +43,8 @@ export const CHALLENGES: Challenge[] = [
   { text: 'Strike the same pose as another person', type: 'group', level: 'medium', media: 'photo' },
   { text: 'Photo with someone from another country', type: 'group', level: 'medium', media: 'photo' },
 
+  { text: 'Photo that looks like a movie poster starring you', type: 'solo', level: 'hard', media: 'photo' },
+  { text: 'Recreate a famous painting pose, on your own', type: 'solo', level: 'hard', media: 'photo' },
   { text: 'Film a 10-second video of you dancing', type: 'solo', level: 'hard', media: 'video' },
   { text: 'Film a 15-second video: introduce the event like a TV reporter', type: 'solo', level: 'hard', media: 'video' },
   { text: 'Film 3 people saying hello in 3 different languages', type: 'group', level: 'hard', media: 'video' },
@@ -69,15 +71,15 @@ export function customFor(title: string): Challenge[] {
 }
 
 // Estrae una sfida del livello scelto. Quelle dell'evento pesano il doppio.
-export function drawChallenge(level: Level, custom: Challenge[] = [], exclude?: string): Challenge {
+export function drawChallenge(level: Level, type: ChallengeType, custom: Challenge[] = [], exclude?: string): Challenge {
   // Se il server non accetta ancora i video, le sfide solo-video non si propongono e "foto o video" diventa "foto".
   const usable = (c: Challenge): Challenge | null => {
     if (VIDEO_UPLOAD_ENABLED) return c;
     if (c.media === 'video') return null;
     return c.media === 'any' ? { ...c, media: 'photo' } : c;
   };
-  const own = custom.filter((c) => c.level === level).map((c) => usable({ ...c, custom: true })).filter((c): c is Challenge => c !== null);
-  const general = CHALLENGES.filter((c) => c.level === level).map(usable).filter((c): c is Challenge => c !== null);
+  const own = custom.filter((c) => c.level === level && c.type === type).map((c) => usable({ ...c, custom: true })).filter((c): c is Challenge => c !== null);
+  const general = CHALLENGES.filter((c) => c.level === level && c.type === type).map(usable).filter((c): c is Challenge => c !== null);
   const pool = [...own, ...own, ...general].filter((c) => c.text !== exclude);
   const list = pool.length > 0 ? pool : general;
   return list[Math.floor(Math.random() * list.length)];

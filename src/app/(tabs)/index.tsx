@@ -7,6 +7,7 @@ import { ServerStatus } from '@/components/ServerStatus';
 import { SmallButton } from '@/components/SmallButton';
 import { StatusStrip } from '@/components/StatusStrip';
 import { useEvents } from '@/context/EventsContext';
+import { photoStatus } from '@/data/events';
 import { colors, sizes } from '@/theme';
 
 function openMission(id: string) {
@@ -15,12 +16,16 @@ function openMission(id: string) {
 
 export default function TodayScreen() {
   const { myEvents, removeFromMyPage, isCompleted, allEvents, loading, error } = useEvents();
+  const now = Date.now();
+  // Eventi finiti ieri (o prima): restano 2 giorni, e per un giorno si può ancora inviare la foto.
+  const earlier = myEvents.filter((e) => e.endsAt.getTime() < now && e.day !== 'Today');
   const today = myEvents.filter((e) => e.day === 'Today');
-  const later = myEvents.filter((e) => e.day !== 'Today');
+  const later = myEvents.filter((e) => e.day !== 'Today' && e.endsAt.getTime() >= now);
 
   const sections = [
     { title: 'Today', data: today },
     { title: 'Coming up', data: later },
+    { title: 'Earlier', data: earlier },
   ].filter((s) => s.data.length > 0);
 
   return (
@@ -42,7 +47,13 @@ export default function TodayScreen() {
                 event={item}
                 showDay={item.day !== 'Today'}
                 showAddress
-                note={isCompleted(item.id) ? 'Done ✓ · tap to see the photos' : undefined}
+                note={
+                  isCompleted(item.id)
+                    ? 'Done ✓ · tap to see the photos'
+                    : item.endsAt.getTime() < now && photoStatus(item) === 'open'
+                      ? 'Ended · you can still send your photo'
+                      : undefined
+                }
                 onPress={() =>
                   isCompleted(item.id)
                     ? router.push({ pathname: '/instants', params: { id: item.id } })
@@ -62,7 +73,7 @@ export default function TodayScreen() {
           )}
           ListEmptyComponent={
             allEvents.length === 0 && (loading || error) ? (
-              <ServerStatus />
+              <ServerStatus variant="list" />
             ) : (
               <Text style={styles.empty}>Nothing on your page yet. Open Discover and add events.</Text>
             )

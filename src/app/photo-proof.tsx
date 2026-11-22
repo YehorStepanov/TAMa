@@ -9,6 +9,7 @@ import { FadeInView } from '@/components/FadeInView';
 import { useEvents } from '@/context/EventsContext';
 import { VIDEO_UPLOAD_ENABLED } from '@/config';
 import { MAX_VIDEO_SECONDS, type ChallengeType, type Level } from '@/data/challenges';
+import { photoStatus } from '@/data/events';
 import { ApiError } from '@/lib/api';
 import { colors, sizes } from '@/theme';
 
@@ -84,6 +85,10 @@ export default function PhotoProofScreen() {
 
   async function sendProof() {
     if (!event || !picked || sending) return;
+    if (photoStatus(event) !== 'open') {
+      Alert.alert('Not now', 'You can send your photo from the start of the event until the day after it.');
+      return;
+    }
     if (picked.kind === 'video' && !VIDEO_UPLOAD_ENABLED) {
       Alert.alert('Video not available yet', 'The server only accepts photos for now. Choose a photo instead.');
       return;
