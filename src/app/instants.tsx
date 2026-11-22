@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, Image, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Dimensions, Image, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { VideoView, useVideoPlayer } from 'expo-video';
 import { useEvents } from '@/context/EventsContext';
-import { instantsForEvent, type MediaSource } from '@/data/photos';
-import { REACTION_EMOJIS } from '@/data/reactions';
+import { fromApiPhoto, type Instant } from '@/data/photos';
+import { REACTIONS } from '@/data/reactions';
+import { addReaction, getEventPhotos } from '@/lib/api';
 import { colors } from '@/theme';
 
 const SCREEN_W = Dimensions.get('window').width;
@@ -35,26 +35,28 @@ function FloatingEmoji({ emoji, x, onDone }: { emoji: string; x: number; onDone:
   );
 }
 
-// Un video che parte da solo e si ripete.
-function VideoSlide({ source }: { source: MediaSource }) {
-  const player = useVideoPlayer(source, (p) => {
-    p.loop = true;
-    p.play();
-  });
-  return <VideoView player={player} style={{ width: '100%', height: '100%' }} contentFit="contain" nativeControls />;
-}
-
 export default function InstantsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { allEvents } = useEvents();
   const event = allEvents.find((e) => e.id === id);
-  // Solo le foto degli altri: non posso reagire alla mia.
-  const instants = instantsForEvent(id ?? '');
+
+  // Le foto degli altri partecipanti (la mia non c'è: non posso reagire alla mia).
+  const [instants, setInstants] = useState<Instant[] | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  useEffect(() => {
+    getEventPhotos(id ?? '')
+      .then((list) => setInstants(list.map(fromApiPhoto)))
+      .catch((e) => {
+        setProblem(e instanceof Error ? e.message : 'Could not load the photos.');
+        setInstants([]);
+      });
+  }, [id]);
+  const list = instants ?? [];
 
   const [index, setIndex] = useState(0);
   const [bursts, setBursts] = useState<Burst[]>([]);
   const burstId = useRef(0);
-  const last = instants.length - 1;
+  const last = list.length - 1;
 
   // La foto segue il dito (pan), si inclina, e la nuova entra con un piccolo "pop" (enter).
   const pan = useRef(new Animated.Value(0)).current;
@@ -72,11 +74,11 @@ export default function InstantsScreen() {
       return;
     }
     busy.current = true;
-    Animated.timing(pan, { toValue: delta === 1 ? -SCREEN_W * 1.2 : SCREEN_W * 1.2, duration: 200, useNativeDriver: false }).start(() => {
+    Animated.timing(pan, { toValue: delta === 1 ? -SCREEN_W * 1.2 : SCREEN_W * 1.2, duration: 240, useNativeDriver: false }).start(() => {
       setIndex(target);
       pan.setValue(0);
-      enter.setValue(0.9);
-      Animated.spring(enter, { toValue: 1, friction: 6, useNativeDriver: false }).start();
+      enter.setValue(0.92);
+      Animated.spring(enter, { toValue: 1, friction: 8, tension: 70, useNativeDriver: false }).start();
       busy.current = false;
     });
   }
@@ -99,15 +101,18 @@ export default function InstantsScreen() {
     }),
   ).current;
 
-  function react(emoji: string) {
-    const fresh: Burst[] = [0, 1, 2].map(() => ({ id: burstId.current++, emoji, x: 30 + Math.random() * 220 }));
+  function react(r: (typeof REACTIONS)[number]) {
+    const fresh: Burst[] = [0, 1, 2].map(() => ({ id: burstId.current++, emoji: r.emoji, x: 30 + Math.random() * 220 }));
     setBursts((b) => [...b, ...fresh]);
+    const photo = list[indexRef.current];
+    // Il server accetta una sola reazione di ciascun tipo per foto: se c'è già (409) va bene così.
+    if (photo) addReaction(photo.key, r.api).catch(() => undefined);
   }
 
-  const current = instants[index];
-  const behind = [instants[index + 2], instants[index + 1]].filter(Boolean);
+  const current = list[index];
+  const behind = [list[index + 2], list[index + 1]].filter(Boolean);
   const rotations = ['6deg', '-7deg'];
-  const rotate = pan.interpolate({ inputRange: [-SCREEN_W, 0, SCREEN_W], outputRange: ['-14deg', '0deg', '14deg'] });
+  const rotate = pan.interpolate({ inputRange: [-SCREEN_W, 0, SCREEN_W], outputRange: ['-12deg', '0deg', '12deg'] });
   const dim = pan.interpolate({ inputRange: [-SCREEN_W, 0, SCREEN_W], outputRange: [0.4, 1, 0.4] });
 
   return (
@@ -119,35 +124,31 @@ export default function InstantsScreen() {
         <View style={{ flex: 1, alignItems: 'center' }}>
           <Text style={styles.title}>{event?.title ?? 'Instants'}</Text>
           <Text style={styles.sub}>
-            {instants.length > 0 ? `${index + 1} of ${instants.length} · ` : ''}photos stay for 24 hours
+            {list.length > 0 ? `${index + 1} of ${list.length} · ` : ''}photos stay for 24 hours
           </Text>
         </View>
         <View style={{ width: 48 }} />
       </View>
 
       <View style={styles.stage} {...swipe.panHandlers}>
-        {current ? (
+        {instants === null ? (
+          <View style={[styles.photo, styles.noPhotos]}>
+            <ActivityIndicator color={colors.onPrimary} />
+          </View>
+        ) : current ? (
           <>
             {behind.map((it, i) => (
               <View key={it.key} style={[styles.photo, styles.behind, { transform: [{ rotate: rotations[i] }] }]} />
             ))}
-            <Animated.View
-              style={[styles.photo, { opacity: dim, transform: [{ translateX: pan }, { rotate }, { scale: enter }] }]}>
+            <Animated.View style={[styles.photo, { opacity: dim, transform: [{ translateX: pan }, { rotate }, { scale: enter }] }]}>
               <View style={[styles.fill, styles.frame]}>
-                {current.kind === 'video' ? (
-                  <VideoSlide key={current.key} source={current.source} />
-                ) : (
-                  <Image source={current.source as number} resizeMode="contain" style={{ width: '100%', height: '100%' }} accessibilityLabel="Instant" />
-                )}
+                <Image source={{ uri: current.full }} resizeMode="contain" style={{ width: '100%', height: '100%' }} accessibilityLabel="Instant" />
               </View>
-              <Text style={styles.challengeTag}>
-                {current.type === 'group' ? '👥' : '👤'} {current.challenge}
-              </Text>
             </Animated.View>
           </>
         ) : (
           <View style={[styles.photo, styles.noPhotos]}>
-            <Text style={styles.noPhotosText}>No instants yet</Text>
+            <Text style={styles.noPhotosText}>{problem ?? 'No instants yet'}</Text>
           </View>
         )}
         {bursts.map((b) => (
@@ -156,9 +157,9 @@ export default function InstantsScreen() {
       </View>
 
       <View style={styles.reactions}>
-        {REACTION_EMOJIS.map((e) => (
-          <Pressable key={e} accessibilityRole="button" accessibilityLabel={`React ${e}`} onPress={() => react(e)} style={styles.reactBtn}>
-            <Text style={styles.reactText}>{e}</Text>
+        {REACTIONS.map((r) => (
+          <Pressable key={r.api} accessibilityRole="button" accessibilityLabel={`React ${r.api}`} onPress={() => react(r)} style={styles.reactBtn}>
+            <Text style={styles.reactText}>{r.emoji}</Text>
           </Pressable>
         ))}
       </View>
@@ -188,22 +189,8 @@ const styles = StyleSheet.create({
   behind: { backgroundColor: 'rgba(255,255,255,0.14)' },
   // La foto si vede intera (non ingrandita): resizeMode contain dentro una cornice scura.
   frame: { overflow: 'hidden', borderRadius: 30, backgroundColor: 'rgba(0,0,0,0.35)' },
-  challengeTag: {
-    position: 'absolute',
-    left: 14,
-    right: 14,
-    bottom: 14,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    color: colors.onPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
   noPhotos: { alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.1)' },
-  noPhotosText: { color: colors.onPrimary, fontSize: 16, fontWeight: '700' },
+  noPhotosText: { color: colors.onPrimary, fontSize: 16, fontWeight: '700', textAlign: 'center', padding: 24 },
   reactions: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4 },
   reactBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
   reactText: { fontSize: 28 },

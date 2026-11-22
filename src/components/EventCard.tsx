@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AddressLink } from '@/components/AddressLink';
 import { colors, sizes } from '@/theme';
 import type { EventItem } from '@/data/events';
@@ -23,7 +23,11 @@ export function EventCard({ event, showDay = false, note, showAddress = false, o
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}>
       <View style={styles.thumb}>
-        <Text style={styles.thumbEmoji}>{event.emoji}</Text>
+        {event.coverUrl ? (
+          <Image source={{ uri: event.coverUrl }} style={styles.thumbImage} resizeMode="cover" />
+        ) : (
+          <Text style={styles.thumbEmoji}>{event.emoji}</Text>
+        )}
       </View>
       <View style={styles.info}>
         <Text style={styles.title}>{event.title}</Text>
@@ -50,7 +54,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: sizes.gap,
   },
-  thumb: { width: 56, height: 56, borderRadius: 16, backgroundColor: colors.tint, alignItems: 'center', justifyContent: 'center' },
+  thumb: { width: 56, height: 56, borderRadius: 16, backgroundColor: colors.tint, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  thumbImage: { width: '100%', height: '100%' },
   thumbEmoji: { fontSize: 28 },
   info: { flex: 1 },
   title: { fontSize: 17, fontWeight: '700', color: colors.text },

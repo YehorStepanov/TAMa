@@ -4,19 +4,31 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { VideoView, useVideoPlayer } from 'expo-video';
 import { AppButton } from '@/components/AppButton';
+import { FadeInView } from '@/components/FadeInView';
 import { useEvents } from '@/context/EventsContext';
+import { VIDEO_UPLOAD_ENABLED } from '@/config';
 import { MAX_VIDEO_SECONDS, type ChallengeType, type Level } from '@/data/challenges';
+import { ApiError } from '@/lib/api';
 import { colors, sizes } from '@/theme';
 
 type Picked = { uri: string; kind: 'image' | 'video' };
 
+// Anteprima video (solo se il modulo c'è). Per ora i video non vengono inviati, vedi VIDEO_UPLOAD_ENABLED.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let Video: any = null;
+try {
+  Video = require('expo-video');
+} catch {
+  Video = null;
+}
+
 function VideoPreview({ uri }: { uri: string }) {
-  const player = useVideoPlayer(uri, (p) => {
+  if (!Video) return <Text style={styles.placeholderText}>Video selected</Text>;
+  const player = Video.useVideoPlayer(uri, (p: { loop: boolean }) => {
     p.loop = true;
   });
-  return <VideoView player={player} style={styles.media} contentFit="contain" nativeControls />;
+  return <Video.VideoView player={player} style={styles.media} contentFit="contain" nativeControls />;
 }
 
 export default function PhotoProofScreen() {
@@ -28,7 +40,8 @@ export default function PhotoProofScreen() {
     points?: string;
     media?: string;
   }>();
-  const { allEvents, addSubmission } = useEvents();
+  const { allEvents, submitPhoto } = useEvents();
+  const [sending, setSending] = useState(false);
   const event = allEvents.find((e) => e.id === id);
   const [picked, setPicked] = useState<Picked | null>(null);
 
@@ -69,18 +82,28 @@ export default function PhotoProofScreen() {
     remember(await ImagePicker.launchImageLibraryAsync({ mediaTypes: types, quality: 0.7 }));
   }
 
-  function sendProof() {
-    if (!event || !picked) return;
+  async function sendProof() {
+    if (!event || !picked || sending) return;
+    if (picked.kind === 'video' && !VIDEO_UPLOAD_ENABLED) {
+      Alert.alert('Video not available yet', 'The server only accepts photos for now. Choose a photo instead.');
+      return;
+    }
     const pts = Number(points) || 50;
-    addSubmission(event.id, {
-      uri: picked.uri,
-      kind: picked.kind,
-      challenge: challenge ?? '',
-      type: (type as ChallengeType) ?? 'solo',
-      level: (level as Level) ?? 'medium',
-      points: pts,
-    });
-    router.replace({ pathname: '/reward', params: { id: event.id, points: String(pts), challenge: challenge ?? '' } });
+    setSending(true);
+    try {
+      await submitPhoto(event.id, picked.uri, {
+        challenge: challenge ?? '',
+        type: (type as ChallengeType) ?? 'solo',
+        level: (level as Level) ?? 'medium',
+        points: pts,
+      });
+      router.replace({ pathname: '/reward', params: { id: event.id, points: String(pts), challenge: challenge ?? '' } });
+    } catch (e) {
+      const conflict = e instanceof ApiError && e.status === 409;
+      Alert.alert(conflict ? 'Already sent' : 'Could not send', conflict ? 'You already sent a photo for this event.' : e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -94,12 +117,14 @@ export default function PhotoProofScreen() {
         )}
 
         {challenge ? (
+          <FadeInView index={1}>
           <View style={styles.challenge}>
             <Text style={styles.challengeLabel}>
               YOUR CHALLENGE · {type === 'group' ? 'GROUP' : 'SOLO'} · +{points} PTS
             </Text>
             <Text style={styles.challengeText}>{challenge}</Text>
           </View>
+          </FadeInView>
         ) : null}
 
         <Pressable
@@ -125,7 +150,7 @@ export default function PhotoProofScreen() {
       <View style={styles.bottom}>
         {picked ? (
           <>
-            <AppButton label="Send proof" onPress={sendProof} />
+            <AppButton label={sending ? 'Sending…' : 'Send proof'} onPress={sendProof} />
             <AppButton variant="secondary" label="Choose another from gallery" onPress={pickFromGallery} />
           </>
         ) : (

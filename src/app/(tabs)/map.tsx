@@ -1,11 +1,19 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AddressLink } from '@/components/AddressLink';
 import { SmallButton } from '@/components/SmallButton';
 import { useEvents } from '@/context/EventsContext';
 import { colors, sizes } from '@/theme';
+
+// Se la mappa non è disponibile (modulo nativo o chiave Google mancanti) l'app parte lo stesso.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let Maps: any = null;
+try {
+  Maps = require('react-native-maps');
+} catch {
+  Maps = null;
+}
 
 // Centro di Brno: per ora la mappa parte sempre da qui.
 const BRNO = { latitude: 49.1951, longitude: 16.6068, latitudeDelta: 0.09, longitudeDelta: 0.09 };
@@ -22,11 +30,14 @@ export default function MapScreen() {
         <Text style={styles.subtitle}>Events in Brno · tap a pin</Text>
       </View>
 
-      <MapView style={styles.map} initialRegion={BRNO} onPress={() => setSelectedId(null)}>
+      {!Maps ? (
+        <Text style={styles.subtitle}>The map is not available on this device.</Text>
+      ) : (
+      <Maps.default style={styles.map} initialRegion={BRNO} onPress={() => setSelectedId(null)}>
         {allEvents.map((e) => {
           const mine = isOnMyPage(e.id);
           return (
-            <Marker
+            <Maps.Marker
               key={e.id}
               coordinate={{ latitude: e.lat, longitude: e.lng }}
               onPress={() => setSelectedId(e.id)}
@@ -35,10 +46,11 @@ export default function MapScreen() {
               <View style={[styles.pin, mine && styles.pinMine, selectedId === e.id && styles.pinSelected]}>
                 <Text style={styles.pinEmoji}>{e.emoji}</Text>
               </View>
-            </Marker>
+            </Maps.Marker>
           );
         })}
-      </MapView>
+      </Maps.default>
+      )}
 
       {selected && (
         <View style={styles.sheet}>

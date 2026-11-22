@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { useRef } from 'react';
+import { Animated, Pressable, StyleSheet, Text } from 'react-native';
 import { colors, sizes } from '@/theme';
 
 type Props = { label: string; onPress: () => void; accessibilityLabel?: string; tone?: 'add' | 'remove' };
@@ -6,14 +7,20 @@ type Props = { label: string; onPress: () => void; accessibilityLabel?: string; 
 // Pulsante piccolo dentro le card: alto 48 px (area minima di tocco).
 export function SmallButton({ label, onPress, accessibilityLabel, tone = 'add' }: Props) {
   const add = tone === 'add';
+  const scale = useRef(new Animated.Value(1)).current;
+  const press = (to: number) => Animated.timing(scale, { toValue: to, duration: 90, useNativeDriver: true }).start();
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
-      onPress={onPress}
-      style={[styles.btn, add ? styles.add : styles.remove]}>
-      <Text style={[styles.text, { color: add ? colors.primary : colors.muted }]}>{label}</Text>
-    </Pressable>
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel ?? label}
+        onPress={onPress}
+        onPressIn={() => press(0.95)}
+        onPressOut={() => press(1)}
+        style={[styles.btn, add ? styles.add : styles.remove]}>
+        <Text style={[styles.text, { color: add ? colors.primary : colors.muted }]}>{label}</Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 

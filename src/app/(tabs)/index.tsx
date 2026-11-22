@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { EventCard } from '@/components/EventCard';
 import { FadeInView } from '@/components/FadeInView';
+import { ServerStatus } from '@/components/ServerStatus';
 import { SmallButton } from '@/components/SmallButton';
 import { StatusStrip } from '@/components/StatusStrip';
 import { useEvents } from '@/context/EventsContext';
@@ -13,7 +14,7 @@ function openMission(id: string) {
 }
 
 export default function TodayScreen() {
-  const { myEvents, removeFromMyPage, isCompleted } = useEvents();
+  const { myEvents, removeFromMyPage, isCompleted, allEvents, loading, error } = useEvents();
   const today = myEvents.filter((e) => e.day === 'Today');
   const later = myEvents.filter((e) => e.day !== 'Today');
 
@@ -60,7 +61,11 @@ export default function TodayScreen() {
             </FadeInView>
           )}
           ListEmptyComponent={
-            <Text style={styles.empty}>Nothing on your page yet. Open Discover to add events.</Text>
+            allEvents.length === 0 && (loading || error) ? (
+              <ServerStatus />
+            ) : (
+              <Text style={styles.empty}>Nothing on your page yet. Open Discover and add events.</Text>
+            )
           }
         />
       </View>

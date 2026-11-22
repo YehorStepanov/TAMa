@@ -1,47 +1,70 @@
+import { useCallback, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useEvents } from '@/context/EventsContext';
-import { instantsForEvent, type Instant } from '@/data/photos';
-import { MOCK_RECEIVED } from '@/data/reactions';
+import type { EventItem } from '@/data/events';
+import { fromApiPhoto, type Instant } from '@/data/photos';
+import { getEventPhotos } from '@/lib/api';
 import { colors, sizes } from '@/theme';
 
 const ROTATIONS = ['-8deg', '6deg', '0deg'];
 
-// Una "pila" di instants, come nelle foto di Instagram: le prime tre foto, un po' inclinate.
-function Stack({ instants, emoji }: { instants: Instant[]; emoji: string }) {
-  // L'anteprima usa solo immagini (i video non hanno miniatura): l'ultima disegnata resta sopra.
-  const shown = instants.filter((i) => i.kind === 'image').slice(0, 3).reverse();
-  if (shown.length === 0) {
-    return (
-      <View style={styles.stack}>
-        <View style={[styles.stackCard, styles.stackEmpty]}>
-          <Text style={{ fontSize: 44 }}>{emoji}</Text>
-        </View>
-      </View>
-    );
-  }
+// Una "pila" di instants, come nelle foto di Instagram: le prime tre foto degli altri, un po' inclinate.
+function EventStack({ event }: { event: EventItem }) {
+  const [photos, setPhotos] = useState<Instant[] | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      getEventPhotos(event.id)
+        .then((list) => alive && setPhotos(list.map(fromApiPhoto)))
+        .catch(() => alive && setPhotos([]));
+      return () => {
+        alive = false;
+      };
+    }, [event.id]),
+  );
+
+  const shown = (photos ?? []).slice(0, 3).reverse(); // l'ultima disegnata resta sopra
+
   return (
-    <View style={styles.stack}>
-      {shown.map((it, i) => (
-        <Image
-          key={it.key}
-          source={it.source as number}
-          resizeMode="cover"
-          style={[styles.stackCard, { transform: [{ rotate: ROTATIONS[i % 3] }] }]}
-        />
-      ))}
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open instants from ${event.title}`}
+      onPress={() => router.push({ pathname: '/instants', params: { id: event.id } })}
+      style={styles.tile}>
+      <View style={styles.stack}>
+        {shown.length === 0 ? (
+          <View style={[styles.stackCard, styles.stackEmpty]}>
+            <Text style={{ fontSize: 44 }}>{event.emoji}</Text>
+          </View>
+        ) : (
+          shown.map((p, i) => (
+            <Image key={p.key} source={{ uri: p.thumb }} resizeMode="cover" style={[styles.stackCard, { transform: [{ rotate: ROTATIONS[i % 3] }] }]} />
+          ))
+        )}
+      </View>
+      <Text style={styles.eventTitle}>{event.title}</Text>
+      <Text style={styles.eventLine}>{photos === null ? 'Loading…' : `${photos.length} instants`}</Text>
+    </Pressable>
   );
 }
 
 // Bacheca foto: una pila per ogni evento a cui ho partecipato.
 export default function PhotosScreen() {
-  const { attendedEvents, submissions } = useEvents();
+  const { attendedEvents, myPhotos, allEvents, metaFor, refreshMyPhotos } = useEvents();
 
-  const mineEvent = attendedEvents.find((e) => submissions[e.id]);
-  const mine = mineEvent ? submissions[mineEvent.id] : undefined;
-  const received = MOCK_RECEIVED.reduce((n, r) => n + r.count, 0);
+  useFocusEffect(
+    useCallback(() => {
+      refreshMyPhotos();
+    }, []), // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  // La mia foto più recente: la vedo qui, mai nella pila (così non posso reagire alla mia).
+  const mine = myPhotos[0];
+  const mineEvent = mine ? allEvents.find((e) => e.id === mine.event_id) : undefined;
+  const meta = mine ? metaFor(mine.event_id) : undefined;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -53,60 +76,36 @@ export default function PhotosScreen() {
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>No instants yet</Text>
             <Text style={styles.emptyText}>
-              Complete a mission and send your photo. Then you can see the instants from that event, for 24 hours.
+              Complete a challenge and send your photo. Then you can see the instants from that event, for 24 hours.
             </Text>
           </View>
         ) : (
           <>
             <View style={styles.grid}>
-              {attendedEvents.map((event) => {
-                // L'anteprima mostra solo le foto degli altri: la mia non si può votare, la vedo nella scheda "Your instant".
-                const instants = instantsForEvent(event.id);
-                return (
-                  <Pressable
-                    key={event.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Open instants from ${event.title}`}
-                    onPress={() => router.push({ pathname: '/instants', params: { id: event.id } })}
-                    style={styles.tile}>
-                    <Stack instants={instants} emoji={event.emoji} />
-                    <Text style={styles.eventTitle}>{event.title}</Text>
-                    <Text style={styles.eventLine}>{instants.length} instants</Text>
-                  </Pressable>
-                );
-              })}
+              {attendedEvents.map((event) => (
+                <EventStack key={event.id} event={event} />
+              ))}
             </View>
 
-            {mineEvent && mine && (
+            {mine && (
               <View style={styles.card}>
                 <View style={styles.cardRow}>
-                  {mine.kind === 'image' ? (
-                    <Image source={{ uri: mine.uri }} style={styles.thumb} />
-                  ) : (
-                    <View style={[styles.thumb, styles.thumbVideo]}>
-                      <Text style={{ fontSize: 24 }}>🎬</Text>
-                    </View>
-                  )}
+                  <Image source={{ uri: mine.thumb_url }} style={styles.thumb} />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.cardTitle}>Your instant · {mineEvent.title}</Text>
-                    <Text style={styles.eventLine}>
-                      {mine.type === 'group' ? '👥 Group' : '👤 Solo'} · {mine.level} · +{mine.points} pts
-                    </Text>
+                    <Text style={styles.cardTitle}>Your instant{mineEvent ? ` · ${mineEvent.title}` : ''}</Text>
+                    {meta && (
+                      <Text style={styles.eventLine}>
+                        {meta.type === 'group' ? '👥 Group' : '👤 Solo'} · {meta.level} · +{meta.points} pts
+                      </Text>
+                    )}
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={styles.big}>{received}</Text>
+                    <Text style={styles.big}>{mine.reactions_count ?? 0}</Text>
                     <Text style={styles.eventLine}>reactions</Text>
                   </View>
                 </View>
-                <Text style={styles.challengeLine}>{mine.challenge}</Text>
+                {meta?.challenge ? <Text style={styles.challengeLine}>{meta.challenge}</Text> : null}
                 <Text style={styles.eventLine}>Only you can see this</Text>
-                <View style={styles.emojiRow}>
-                  {MOCK_RECEIVED.map((r) => (
-                    <Text key={r.emoji} style={styles.emojiCount}>
-                      {r.emoji} {r.count}
-                    </Text>
-                  ))}
-                </View>
               </View>
             )}
           </>
@@ -157,10 +156,7 @@ const styles = StyleSheet.create({
   },
   cardRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   thumb: { width: 52, height: 52, borderRadius: 12, backgroundColor: colors.border },
-  thumbVideo: { alignItems: 'center', justifyContent: 'center' },
-  challengeLine: { fontSize: 15, fontWeight: '700', color: colors.text, marginTop: 10 },
   cardTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
+  challengeLine: { fontSize: 15, fontWeight: '700', color: colors.text, marginTop: 10 },
   big: { fontSize: 24, fontWeight: '700', color: colors.text },
-  emojiRow: { flexDirection: 'row', gap: 14, marginTop: 10 },
-  emojiCount: { fontSize: 16, fontWeight: '700', color: colors.text },
 });

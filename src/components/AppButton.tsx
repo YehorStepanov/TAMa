@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { useRef } from 'react';
+import { Animated, Pressable, StyleSheet, Text } from 'react-native';
 import { colors, sizes } from '@/theme';
 
 type Props = {
@@ -10,14 +11,21 @@ type Props = {
 // Pulsanti a pillola: primary = 56 px (azione principale), secondary = 48 px (azione secondaria).
 export function AppButton({ label, onPress, variant = 'primary' }: Props) {
   const primary = variant === 'primary';
+  // Quando premi, il pulsante si rimpicciolisce appena: il tocco si vede ma senza effetti vistosi.
+  const scale = useRef(new Animated.Value(1)).current;
+  const press = (to: number) => Animated.timing(scale, { toValue: to, duration: 90, useNativeDriver: true }).start();
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={({ pressed }) => [styles.base, primary ? styles.primary : styles.secondary, pressed && { opacity: 0.8 }]}>
-      <Text style={[styles.text, primary ? styles.textPrimary : styles.textSecondary]}>{label}</Text>
-    </Pressable>
+    <Animated.View style={{ width: '100%', transform: [{ scale }] }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        onPress={onPress}
+        onPressIn={() => press(0.97)}
+        onPressOut={() => press(1)}
+        style={[styles.base, primary ? styles.primary : styles.secondary]}>
+        <Text style={[styles.text, primary ? styles.textPrimary : styles.textSecondary]}>{label}</Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 

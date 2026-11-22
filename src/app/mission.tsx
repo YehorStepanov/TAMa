@@ -4,10 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { AppButton } from '@/components/AppButton';
 import { EventCard } from '@/components/EventCard';
+import { FadeInView } from '@/components/FadeInView';
 import { Segmented } from '@/components/Segmented';
 import { useEvents } from '@/context/EventsContext';
 import {
-  CUSTOM_CHALLENGES,
+  customFor,
   DEFAULT_LEVEL,
   LEVELS,
   drawChallenge,
@@ -23,7 +24,7 @@ export default function MissionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { allEvents, isCompleted } = useEvents();
   const event = allEvents.find((e) => e.id === id);
-  const custom = CUSTOM_CHALLENGES[id ?? ''] ?? [];
+  const custom = customFor(event?.title ?? '');
 
   // Livello di partenza: medio. Si cambia qui, quando si sceglie l'evento.
   const [level, setLevel] = useState<Level>(DEFAULT_LEVEL);
@@ -53,20 +54,25 @@ export default function MissionScreen() {
   return (
     <SafeAreaView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-        <Text style={styles.label}>THE EVENT</Text>
+        <FadeInView index={0}>
+        <Text style={[styles.label, { marginBottom: 8 }]}>THE EVENT</Text>
         <View style={styles.info}>
           <EventCard event={event} showDay showAddress />
           <Text style={styles.tagLine}>{event.category}</Text>
           <Text style={styles.description}>{event.description}</Text>
         </View>
+        </FadeInView>
 
-        <Text style={styles.label}>YOUR CHALLENGE</Text>
+        <FadeInView index={1}>
+        <Text style={[styles.label, { marginBottom: 8 }]}>YOUR CHALLENGE</Text>
         <Segmented
           value={level}
           onChange={changeLevel}
           options={LEVELS.map((l) => ({ key: l.key, label: l.label, sub: `${l.points} pts` }))}
         />
+        </FadeInView>
 
+        <FadeInView key={challenge.text} index={2} distance={24}>
         <View style={styles.challenge}>
           <View style={styles.chips}>
             <Text style={styles.chip}>{challenge.type === 'group' ? '👥 Group' : '👤 Solo'}</Text>
@@ -80,8 +86,11 @@ export default function MissionScreen() {
             onPress={() => setChallenge((c) => drawChallenge(level, custom, c.text))}
           />
         </View>
+        </FadeInView>
 
+        <FadeInView index={3}>
         <Text style={styles.points}>+{points} points when you send it</Text>
+        </FadeInView>
       </ScrollView>
 
       <View style={styles.bottom}>
