@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors } from '@/theme';
+import { colors, r } from '@/theme';
 
 type Option<T extends string> = { key: T; label: string; sub?: string };
 
@@ -34,8 +34,8 @@ export function Segmented<T extends string>({
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', backgroundColor: colors.border, borderRadius: 999, padding: 4 },
-  item: { flex: 1, minHeight: 56, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  row: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.45)', borderRadius: r(999), padding: 4 },
+  item: { flex: 1, minHeight: 56, borderRadius: r(999), alignItems: 'center', justifyContent: 'center' },
   itemActive: { backgroundColor: colors.surface },
   label: { fontSize: 16, fontWeight: '600', color: colors.muted },
   sub: { fontSize: 13, color: colors.muted },

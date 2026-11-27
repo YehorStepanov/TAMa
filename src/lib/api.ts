@@ -17,6 +17,7 @@ export type ApiEvent = {
   lat: number;
   lng: number;
   emoji?: string | null;
+  photo_window_hours?: number; // quante ore dopo la fine si può ancora inviare la foto (se manca: 24)
   status: string;
 };
 export type ApiPhoto = {
@@ -28,6 +29,7 @@ export type ApiPhoto = {
   expires_at: string;
   created_at: string;
   reactions_count?: number;
+  reactions?: Partial<Record<ApiEmoji, number>>; // quante reazioni di ogni tipo (solo sulle mie foto, se il server le manda)
 };
 export type ApiEmoji = 'Fire' | 'Laughing' | 'Heart' | 'Surprised' | 'Party_Popper';
 
@@ -67,8 +69,8 @@ async function request<T>(path: string, init: { method?: string; body?: FormData
     return body as T;
   } catch (e) {
     if (e instanceof ApiError) throw e;
-    if ((e as Error).name === 'AbortError') throw new ApiError(0, 'The server is taking too long to answer. Try again in a minute.');
-    throw new ApiError(0, `Cannot reach the server (${(e as Error).message}). Check your connection.`);
+    if ((e as Error).name === 'AbortError') throw new ApiError(0, "That's taking longer than usual. Give it a minute and try again.");
+    throw new ApiError(0, "Can't connect right now. Check your internet and try again.");
   } finally {
     clearTimeout(timer);
   }
@@ -92,7 +94,7 @@ export async function uploadPhoto(eventId: string, uri: string): Promise<ApiPhot
       headers: { 'x-device-id': await getDeviceId() },
     });
   } catch (e) {
-    throw new ApiError(0, `Cannot reach the server (${(e as Error).message}).`);
+    throw new ApiError(0, "Can't connect right now. Check your internet and try again.");
   }
   let body: { data?: ApiPhoto; message?: string } = {};
   try {

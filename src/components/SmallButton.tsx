@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text } from 'react-native';
-import { colors, sizes } from '@/theme';
+import { colors, sizes, r } from '@/theme';
 
 type Props = { label: string; onPress: () => void; accessibilityLabel?: string; tone?: 'add' | 'remove' };
 
@@ -29,9 +29,9 @@ const styles = StyleSheet.create({
     height: sizes.minTouch,
     minWidth: 84,
     paddingHorizontal: 14,
-    borderRadius: 999,
+    borderRadius: r(999),
     borderWidth: 1.5,
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(255,255,255,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
   },

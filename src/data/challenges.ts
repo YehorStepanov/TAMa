@@ -25,10 +25,6 @@ export const LEVELS: { key: Level; label: string; points: number }[] = [
 // Livello di partenza: si può cambiare quando si sceglie l'evento.
 export const DEFAULT_LEVEL: Level = 'medium';
 
-export function pointsFor(level: Level): number {
-  return LEVELS.find((l) => l.key === level)?.points ?? 50;
-}
-
 // Sfide generali, valide per qualsiasi evento.
 export const CHALLENGES: Challenge[] = [
   { text: 'Take a photo of the best detail of the place', type: 'solo', level: 'easy', media: 'photo' },
@@ -68,6 +64,10 @@ const CUSTOM_BY_TITLE: Record<string, Challenge[]> = {
 
 export function customFor(title: string): Challenge[] {
   return CUSTOM_BY_TITLE[title.trim().toLowerCase()] ?? [];
+}
+
+export function pointsFor(level: Level): number {
+  return LEVELS.find((l) => l.key === level)?.points ?? 50;
 }
 
 // Estrae una sfida del livello scelto. Quelle dell'evento pesano il doppio.

@@ -7,3 +7,4 @@ export const REQUEST_TIMEOUT_MS = 70000;
 // Il server per ora accetta solo immagini (multer: image/*). Finché non supporta anche i video,
 // le sfide che richiedono un video non vengono proposte. Metti true quando il backend sarà pronto.
 export const VIDEO_UPLOAD_ENABLED = false;
+

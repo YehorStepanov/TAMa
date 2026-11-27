@@ -1,5 +1,5 @@
 import type { ApiEvent } from '@/lib/api';
-import { dayLabel, timeRange } from '@/lib/format';
+import { clock, dayLabel, eventTime } from '@/lib/format';
 
 export type EventItem = {
   id: string;
@@ -9,9 +9,12 @@ export type EventItem = {
   category: string; // il tag (tipo di evento)
   coverUrl: string | null;
   day: string; // 'Today', 'Tomorrow', 'Sat 29/11'
-  time: string; // '7–9 PM'
+  time: string; // '7–9 PM' (o, se dura più giorni, '11 AM → Sat 28/11, 10 PM')
+  startClock: string; // '7 PM'
+  endClock: string; // '9 PM'
   startsAt: Date;
   endsAt: Date;
+  photoWindowHours: number; // ore (dopo la fine) in cui si può ancora inviare la foto: di solito 24
   place: string;
   address: string; // usato per aprire Google Maps
   lat: number;
@@ -30,9 +33,12 @@ export function fromApi(e: ApiEvent): EventItem {
     category: e.tag_id?.name ?? 'Event',
     coverUrl: e.cover_image_url || null,
     day: dayLabel(startsAt),
-    time: timeRange(startsAt, endsAt),
+    time: eventTime(startsAt, endsAt),
+    startClock: clock(startsAt),
+    endClock: clock(endsAt),
     startsAt,
     endsAt,
+    photoWindowHours: e.photo_window_hours && e.photo_window_hours > 0 ? e.photo_window_hours : 24,
     place: e.place_name,
     address: e.address,
     lat: e.lat,
@@ -42,20 +48,24 @@ export function fromApi(e: ApiEvent): EventItem {
 
 const HOUR = 60 * 60 * 1000;
 
-// Un evento resta visibile finché non sono passati più di due giorni dalla sua fine (si vedono anche quelli di ieri).
-export const VISIBLE_AFTER_END_MS = 48 * HOUR;
-// La foto si può inviare dall'inizio dell'evento fino a 24 ore dopo la fine (anche il giorno dopo).
-export const PHOTO_WINDOW_AFTER_END_MS = 24 * HOUR;
-
+// Un evento resta visibile per almeno 2 giorni dopo la fine (si vedono anche quelli di ieri),
+// o più a lungo se la sua finestra per le foto è più lunga (per esempio un viaggio di più giorni).
 export function isVisible(e: EventItem, now = Date.now()): boolean {
-  return e.endsAt.getTime() > now - VISIBLE_AFTER_END_MS;
+  const keep = Math.max(48, e.photoWindowHours) * HOUR;
+  return e.endsAt.getTime() > now - keep;
 }
 
 export type PhotoStatus = 'upcoming' | 'open' | 'closed';
 
 // 'upcoming' = non è ancora iniziato, 'open' = si può inviare la foto, 'closed' = troppo tardi.
+// La foto si invia dall'inizio dell'evento fino a `photoWindowHours` dopo la fine (di solito 24 ore).
 export function photoStatus(e: EventItem, now = Date.now()): PhotoStatus {
   if (now < e.startsAt.getTime()) return 'upcoming';
-  if (now > e.endsAt.getTime() + PHOTO_WINDOW_AFTER_END_MS) return 'closed';
+  if (now > e.endsAt.getTime() + e.photoWindowHours * HOUR) return 'closed';
   return 'open';
+}
+
+// "24 hours", "3 days"...
+export function windowText(hours: number): string {
+  return hours % 24 === 0 && hours > 24 ? `${hours / 24} days` : `${hours} hours`;
 }

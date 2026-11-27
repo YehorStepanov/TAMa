@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text } from 'react-native';
-import { colors, sizes } from '@/theme';
+import { colors, sizes, r } from '@/theme';
 
 type Props = {
   label: string;
@@ -32,9 +32,9 @@ export function AppButton({ label, onPress, variant = 'primary', disabled = fals
 }
 
 const styles = StyleSheet.create({
-  base: { alignItems: 'center', justifyContent: 'center', width: '100%', borderRadius: 999 },
+  base: { alignItems: 'center', justifyContent: 'center', width: '100%', borderRadius: r(999) },
   primary: { height: sizes.buttonPrimary, backgroundColor: colors.primary },
-  secondary: { height: sizes.buttonSecondary, backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.outline },
+  secondary: { height: sizes.buttonSecondary, backgroundColor: 'rgba(255,255,255,0.5)', borderWidth: 1.5, borderColor: colors.glassBorder },
   text: { fontSize: 16 },
   textPrimary: { color: colors.onPrimary, fontWeight: '700' },
   textSecondary: { color: colors.text, fontWeight: '600' },

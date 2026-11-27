@@ -32,7 +32,7 @@ export function ServerStatus({ variant = 'list' }: { variant?: 'poster' | 'list'
       <View>
         {show ? variant === 'poster' ? <PosterSkeleton /> : <ListSkeleton /> : null}
         {slow ? (
-          <Text style={styles.small}>Waking up the server… the first time can take up to a minute.</Text>
+          <Text style={styles.small}>Just a moment, we're waking things up. The first time can take up to a minute.</Text>
         ) : null}
       </View>
     );

@@ -6,8 +6,8 @@ import { SkeletonBox } from '@/components/Skeleton';
 import { useEvents } from '@/context/EventsContext';
 import { fromApiPhoto, type Instant } from '@/data/photos';
 import { REACTIONS } from '@/data/reactions';
-import { addReaction, getEventPhotos } from '@/lib/api';
-import { colors } from '@/theme';
+import { getEventPhotos } from '@/lib/api';
+import { colors, r } from '@/theme';
 
 const SCREEN_W = Dimensions.get('window').width;
 const THRESHOLD = 90; // quanto trascinare per cambiare foto
@@ -38,7 +38,7 @@ function FloatingEmoji({ emoji, x, onDone }: { emoji: string; x: number; onDone:
 
 export default function InstantsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { allEvents } = useEvents();
+  const { allEvents, myReaction, react: setReaction } = useEvents();
   const event = allEvents.find((e) => e.id === id);
 
   // Le foto degli altri partecipanti (la mia non c'è: non posso reagire alla mia).
@@ -48,7 +48,7 @@ export default function InstantsScreen() {
     getEventPhotos(id ?? '')
       .then((list) => setInstants(list.map(fromApiPhoto)))
       .catch((e) => {
-        setProblem(e instanceof Error ? e.message : 'Could not load the photos.');
+        setProblem(e instanceof Error ? e.message : "Couldn't load the photos. Go back and try again.");
         setInstants([]);
       });
   }, [id]);
@@ -103,11 +103,13 @@ export default function InstantsScreen() {
   ).current;
 
   function react(r: (typeof REACTIONS)[number]) {
+    const photo = list[indexRef.current];
+    if (!photo) return;
+    if (myReaction(photo.key) === r.api) return; // la stessa reazione non conta una seconda volta
+    // Una sola reazione per persona: se ne scegli un'altra, sostituisce la precedente (e non conta come nuova).
+    setReaction(photo.key, r.api);
     const fresh: Burst[] = [0, 1, 2].map(() => ({ id: burstId.current++, emoji: r.emoji, x: 30 + Math.random() * 220 }));
     setBursts((b) => [...b, ...fresh]);
-    const photo = list[indexRef.current];
-    // Il server accetta una sola reazione di ciascun tipo per foto: se c'è già (409) va bene così.
-    if (photo) addReaction(photo.key, r.api).catch(() => undefined);
   }
 
   const current = list[index];
@@ -123,9 +125,9 @@ export default function InstantsScreen() {
           <Text style={styles.closeText}>✕</Text>
         </Pressable>
         <View style={{ flex: 1, alignItems: 'center' }}>
-          <Text style={styles.title}>{event?.title ?? 'Instants'}</Text>
+          <Text style={styles.title}>{event?.title ?? 'Photos'}</Text>
           <Text style={styles.sub}>
-            {list.length > 0 ? `${index + 1} of ${list.length} · ` : ''}photos stay for 24 hours
+            {list.length > 0 ? `${index + 1} of ${list.length} · ` : ''}gone after 24 hours
           </Text>
         </View>
         <View style={{ width: 48 }} />
@@ -134,7 +136,7 @@ export default function InstantsScreen() {
       <View style={styles.stage} {...swipe.panHandlers}>
         {instants === null ? (
           <View style={styles.photo}>
-            <SkeletonBox style={{ flex: 1, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.12)' }} />
+            <SkeletonBox style={{ flex: 1, borderRadius: r(30), backgroundColor: 'rgba(255,255,255,0.12)' }} />
           </View>
         ) : current ? (
           <>
@@ -149,7 +151,7 @@ export default function InstantsScreen() {
           </>
         ) : (
           <View style={[styles.photo, styles.noPhotos]}>
-            <Text style={styles.noPhotosText}>{problem ?? 'No instants yet'}</Text>
+            <Text style={styles.noPhotosText}>{problem ?? 'No photos yet. Check back soon!'}</Text>
           </View>
         )}
         {bursts.map((b) => (
@@ -159,7 +161,7 @@ export default function InstantsScreen() {
 
       <View style={styles.reactions}>
         {REACTIONS.map((r) => (
-          <Pressable key={r.api} accessibilityRole="button" accessibilityLabel={`React ${r.api}`} onPress={() => react(r)} style={styles.reactBtn}>
+          <Pressable key={r.api} accessibilityRole="button" accessibilityState={{ selected: current ? myReaction(current.key) === r.api : false }} accessibilityLabel={`React ${r.api}`} onPress={() => react(r)} style={[styles.reactBtn, current && myReaction(current.key) === r.api && styles.reactOn]}>
             <Text style={styles.reactText}>{r.emoji}</Text>
           </Pressable>
         ))}
@@ -185,18 +187,19 @@ const styles = StyleSheet.create({
   title: { fontSize: 16, fontWeight: '700', color: colors.onPrimary },
   sub: { fontSize: 13, color: 'rgba(255,255,255,0.8)' },
   stage: { flex: 1, marginVertical: 12, marginHorizontal: 8 },
-  photo: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 30 },
+  photo: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: r(30) },
   fill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   behind: { backgroundColor: 'rgba(255,255,255,0.14)' },
   // La foto si vede intera (non ingrandita): resizeMode contain dentro una cornice scura.
-  frame: { overflow: 'hidden', borderRadius: 30, backgroundColor: 'rgba(0,0,0,0.35)' },
+  frame: { overflow: 'hidden', borderRadius: r(30), backgroundColor: 'rgba(0,0,0,0.35)' },
   noPhotos: { alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.1)' },
   noPhotosText: { color: colors.onPrimary, fontSize: 16, fontWeight: '700', textAlign: 'center', padding: 24 },
   reactions: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4 },
-  reactBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
+  reactBtn: { width: 56, height: 56, borderRadius: r(28), backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
+  reactOn: { backgroundColor: 'rgba(255,255,255,0.45)', borderWidth: 2, borderColor: '#FFFFFF' },
   reactText: { fontSize: 28 },
   nav: { flexDirection: 'row', gap: 10, marginTop: 12, marginBottom: 12 },
-  pill: { flex: 1, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
+  pill: { flex: 1, height: 52, borderRadius: r(26), backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
   pillOff: { opacity: 0.4 },
   pillText: { fontSize: 16, fontWeight: '700', color: colors.onPrimary },
 });

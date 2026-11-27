@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Dimensions } from 'react-native';
-import { colors, sizes } from '@/theme';
+import { colors, sizes, r } from '@/theme';
 
 // Segnaposto di caricamento ("skeleton"): ha la forma del contenuto che sta per arrivare, con un'onda
 // lenta da sinistra verso destra (secondo le slide: l'onda piace più dell'effetto pulsante, e lenta meglio che veloce).
@@ -34,10 +34,10 @@ const SCREEN_W = Dimensions.get('window').width;
 export function PosterSkeleton() {
   return (
     <View style={{ gap: 12, paddingHorizontal: sizes.margin }}>
-      <SkeletonBox style={{ width: '100%', height: Math.round((SCREEN_W - sizes.margin * 2) * 1.15), borderRadius: 28 }} />
-      <SkeletonBox style={{ width: '40%', height: 14, borderRadius: 7 }} />
-      <SkeletonBox style={{ width: '75%', height: 24, borderRadius: 8 }} />
-      <SkeletonBox style={{ width: '55%', height: 14, borderRadius: 7 }} />
+      <SkeletonBox style={{ width: '100%', height: Math.round((SCREEN_W - sizes.margin * 2) * 1.15), borderRadius: r(28) }} />
+      <SkeletonBox style={{ width: '40%', height: 14, borderRadius: r(7) }} />
+      <SkeletonBox style={{ width: '75%', height: 24, borderRadius: r(8) }} />
+      <SkeletonBox style={{ width: '55%', height: 14, borderRadius: r(7) }} />
     </View>
   );
 }
@@ -48,10 +48,10 @@ export function ListSkeleton({ rows = 4 }: { rows?: number }) {
     <View style={{ gap: sizes.gap, paddingTop: 12 }}>
       {Array.from({ length: rows }, (_, i) => (
         <View key={i} style={styles.row}>
-          <SkeletonBox style={{ width: 56, height: 56, borderRadius: 16 }} />
+          <SkeletonBox style={{ width: 112, height: 112, borderRadius: r(18) }} />
           <View style={{ flex: 1, gap: 8 }}>
-            <SkeletonBox style={{ width: '70%', height: 18, borderRadius: 8 }} />
-            <SkeletonBox style={{ width: '50%', height: 12, borderRadius: 6 }} />
+            <SkeletonBox style={{ width: '70%', height: 18, borderRadius: r(8) }} />
+            <SkeletonBox style={{ width: '50%', height: 12, borderRadius: r(6) }} />
           </View>
         </View>
       ))}
@@ -60,17 +60,17 @@ export function ListSkeleton({ rows = 4 }: { rows?: number }) {
 }
 
 const styles = StyleSheet.create({
-  box: { backgroundColor: colors.border, overflow: 'hidden' },
+  box: { backgroundColor: 'rgba(255,255,255,0.45)', overflow: 'hidden' },
   band: { position: 'absolute', top: 0, bottom: 0, left: 0 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: sizes.gap,
-    backgroundColor: colors.surface,
-    borderRadius: sizes.radius,
+    backgroundColor: colors.glass,
+    borderRadius: r(sizes.radius),
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.glassBorder,
     padding: 16,
-    minHeight: 80,
+    minHeight: 130,
   },
 });

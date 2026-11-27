@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { AppButton } from '@/components/AppButton';
+import { Screen } from '@/components/Screen';
 import { FadeInView } from '@/components/FadeInView';
 import { useEvents } from '@/context/EventsContext';
 import { VIDEO_UPLOAD_ENABLED } from '@/config';
 import { MAX_VIDEO_SECONDS, type ChallengeType, type Level } from '@/data/challenges';
 import { photoStatus } from '@/data/events';
 import { ApiError } from '@/lib/api';
-import { colors, sizes } from '@/theme';
+import { colors, sizes, r } from '@/theme';
 
 type Picked = { uri: string; kind: 'image' | 'video' };
 
@@ -54,7 +54,7 @@ export default function PhotoProofScreen() {
     if (res.canceled) return;
     const asset = res.assets[0];
     if (asset.type === 'video' && asset.duration != null && asset.duration > MAX_VIDEO_SECONDS * 1000) {
-      Alert.alert('Video too long', `Videos can be ${MAX_VIDEO_SECONDS} seconds at most. Choose a shorter one.`);
+      Alert.alert('That video is a bit long', `Please keep it under ${MAX_VIDEO_SECONDS} seconds.`);
       return;
     }
     setPicked({ uri: asset.uri, kind: asset.type === 'video' ? 'video' : 'image' });
@@ -63,7 +63,7 @@ export default function PhotoProofScreen() {
   async function takePhoto() {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Camera permission needed', 'Allow camera access in the phone settings, or choose a file from the gallery.');
+      Alert.alert('Camera permission needed', "AHOJ needs your camera to take the photo. You can turn it on in your phone's settings, or pick one from your gallery instead.");
       return;
     }
     remember(await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7 }));
@@ -72,7 +72,7 @@ export default function PhotoProofScreen() {
   async function recordVideo() {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Camera permission needed', 'Allow camera access in the phone settings, or choose a file from the gallery.');
+      Alert.alert('Camera permission needed', "AHOJ needs your camera to take the photo. You can turn it on in your phone's settings, or pick one from your gallery instead.");
       return;
     }
     remember(await ImagePicker.launchCameraAsync({ mediaTypes: ['videos'], videoMaxDuration: MAX_VIDEO_SECONDS, quality: 0.7 }));
@@ -86,11 +86,11 @@ export default function PhotoProofScreen() {
   async function sendProof() {
     if (!event || !picked || sending) return;
     if (photoStatus(event) !== 'open') {
-      Alert.alert('Not now', 'You can send your photo from the start of the event until the day after it.');
+      Alert.alert('Not just yet', 'Photos can be sent while the event is on, and for a little while after it ends.');
       return;
     }
     if (picked.kind === 'video' && !VIDEO_UPLOAD_ENABLED) {
-      Alert.alert('Video not available yet', 'The server only accepts photos for now. Choose a photo instead.');
+      Alert.alert("Videos aren't supported yet", 'Please send a photo instead.');
       return;
     }
     const pts = Number(points) || 50;
@@ -100,21 +100,20 @@ export default function PhotoProofScreen() {
         challenge: challenge ?? '',
         type: (type as ChallengeType) ?? 'solo',
         level: (level as Level) ?? 'medium',
-        points: pts,
       });
       router.replace({ pathname: '/reward', params: { id: event.id, points: String(pts), challenge: challenge ?? '' } });
     } catch (e) {
       const conflict = e instanceof ApiError && e.status === 409;
-      Alert.alert(conflict ? 'Already sent' : 'Could not send', conflict ? 'You already sent a photo for this event.' : e instanceof Error ? e.message : 'Try again.');
+      Alert.alert(conflict ? 'Already sent' : "Couldn't send it", conflict ? "You've already sent a photo for this event." : e instanceof Error ? e.message : 'Please try again.');
     } finally {
       setSending(false);
     }
   }
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <Screen edges={['top', 'bottom']}>
       <View style={styles.body}>
-        <Text style={styles.title}>{wantsVideo ? 'Show us in a video' : 'Show you were there'}</Text>
+        <Text style={styles.title}>{wantsVideo ? 'Film it!' : 'Show you were there'}</Text>
         {event && (
           <Text style={styles.subtitle}>
             {event.title} · {event.place}
@@ -146,7 +145,7 @@ export default function PhotoProofScreen() {
           ) : (
             <View style={styles.placeholder}>
               <Ionicons name={wantsVideo ? 'videocam-outline' : 'camera-outline'} size={64} color={colors.primary} />
-              <Text style={styles.placeholderText}>{wantsVideo ? `Tap to record (max ${MAX_VIDEO_SECONDS} s)` : 'Tap to take a photo'}</Text>
+              <Text style={styles.placeholderText}>{wantsVideo ? `Tap to record (up to ${MAX_VIDEO_SECONDS} s)` : 'Tap to take a photo'}</Text>
             </View>
           )}
         </Pressable>
@@ -155,17 +154,17 @@ export default function PhotoProofScreen() {
       <View style={styles.bottom}>
         {picked ? (
           <>
-            <AppButton label={sending ? 'Sending…' : 'Send proof'} onPress={sendProof} />
-            <AppButton variant="secondary" label="Choose another from gallery" onPress={pickFromGallery} />
+            <AppButton label={sending ? 'Sending…' : 'Send it'} onPress={sendProof} />
+            <AppButton variant="secondary" label="Pick a different one" onPress={pickFromGallery} />
           </>
         ) : (
           <>
-            <AppButton label="Choose from gallery" onPress={pickFromGallery} />
+            <AppButton label="Pick from your gallery" onPress={pickFromGallery} />
             {allowsVideo && !wantsVideo && <AppButton variant="secondary" label="Record a video" onPress={recordVideo} />}
           </>
         )}
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -174,12 +173,12 @@ const styles = StyleSheet.create({
   body: { flex: 1, paddingHorizontal: sizes.margin, paddingTop: 24, gap: sizes.gap },
   title: { fontSize: 26, fontWeight: '700', color: colors.text },
   subtitle: { fontSize: 16, color: colors.muted, marginTop: -6 },
-  challenge: { backgroundColor: colors.sand, borderRadius: sizes.radius, padding: 16 },
+  challenge: { backgroundColor: colors.sand, borderRadius: r(sizes.radius), padding: 16 },
   challengeLabel: { fontSize: 13, fontWeight: '700', letterSpacing: 0.8, color: colors.sandText },
   challengeText: { fontSize: 18, fontWeight: '700', color: colors.text, marginTop: 4 },
   preview: {
     flex: 1,
-    borderRadius: 20,
+    borderRadius: r(20),
     borderWidth: 2,
     borderStyle: 'dashed',
     borderColor: colors.outline,
