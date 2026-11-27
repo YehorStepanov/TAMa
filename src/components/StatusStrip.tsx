@@ -1,19 +1,19 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { useEvents } from '@/context/EventsContext';
 import { colors } from '@/theme';
 
-// Barra in alto: solo informazioni, niente di cliccabile (zona difficile da raggiungere col pollice).
+// Barra in alto: i tuoi punti (solo informazione, niente di cliccabile).
 export function StatusStrip() {
+  const { points } = useEvents();
   return (
     <View style={styles.row}>
-      <Text style={[styles.chip, { color: colors.accent }]}>3 week streak</Text>
-      <Text style={styles.chip}>120 pts</Text>
-      <Text style={[styles.chip, { marginLeft: 'auto' }]}>Lv 3</Text>
+      <Text style={styles.chip}>⭐ {points} points</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { height: 56, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  row: { height: 56, flexDirection: 'row', alignItems: 'center' },
   chip: {
     overflow: 'hidden',
     backgroundColor: colors.surface,

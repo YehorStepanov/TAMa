@@ -1,236 +1,230 @@
 import { useRef, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { AppButton } from '@/components/AppButton';
+import { FlatList, Modal, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { CardAction } from '@/components/CardAction';
 import { EventCard } from '@/components/EventCard';
+import { FadeInView } from '@/components/FadeInView';
+import { Screen, useTabSpace } from '@/components/Screen';
+import { ServerStatus } from '@/components/ServerStatus';
 import { SmallButton } from '@/components/SmallButton';
-import { EventFace, SwipeCard, type SwipeCardHandle } from '@/components/SwipeCard';
-import { StatusStrip } from '@/components/StatusStrip';
+import { StatChips } from '@/components/StatChips';
+import { PosterFace, SwipeCard, type SwipeCardHandle } from '@/components/SwipeCard';
 import { useEvents } from '@/context/EventsContext';
-import { DAY_ORDER } from '@/data/events';
-import { colors, sizes } from '@/theme';
+import type { EventItem } from '@/data/events';
+import { colors, sizes, r } from '@/theme';
 
 type Step = { id: string; added: boolean };
+type Mode = 'swipe' | 'list';
 
+function openEvent(id: string) {
+  router.push({ pathname: '/mission', params: { id } });
+}
+
+// Discover: la schermata principale. Sfoglia gli eventi come carte da trascinare, in lista o sulla mappa.
 export default function DiscoverScreen() {
-  const { allEvents, isOnMyPage, addToMyPage, removeFromMyPage } = useEvents();
-  // Coda di eventi da mostrare: quelli che non sono ancora sulla mia pagina.
-  const [queue, setQueue] = useState<string[]>(() => allEvents.filter((e) => !isOnMyPage(e.id)).map((e) => e.id));
+  const { visibleEvents, allEvents, loading, error, refresh, refreshing, isOnMyPage, addToMyPage, removeFromMyPage } = useEvents();
+  const tabSpace = useTabSpace();
+  const [mode, setMode] = useState<Mode>('swipe');
+  const [pickedDay, setPickedDay] = useState<string>('All');
+  const [menu, setMenu] = useState(false);
+  const [skipped, setSkipped] = useState<string[]>([]);
   const [history, setHistory] = useState<Step[]>([]);
   const cardRef = useRef<SwipeCardHandle>(null);
-  const [mode, setMode] = useState<'cards' | 'list'>('cards');
 
-  // Le carte da mostrare: quelle in coda che non sono già sulla mia pagina (anche se le ho aggiunte dalla lista).
-  const visible = queue.filter((id) => !isOnMyPage(id));
-  const current = allEvents.find((e) => e.id === visible[0]);
-  const next = allEvents.find((e) => e.id === visible[1]);
+  // Eventi non ancora scaduti (si vedono anche quelli di ieri); i giorni disponibili per il menu in alto.
+  const days = Array.from(new Set(visibleEvents.map((e) => e.day)));
+  const day = days.includes(pickedDay) ? pickedDay : 'All';
+  const shown = day === 'All' ? visibleEvents : visibleEvents.filter((e) => e.day === day);
 
-  // Eventi che ho saltato con lo swipe (e non ho poi aggiunto).
-  const skipped = history.filter((h) => !h.added).map((h) => h.id);
-  const listEvents = [...allEvents].sort((a, b) => DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day));
-
-  function listAdd(id: string) {
-    addToMyPage(id);
-  }
-  function listRemove(id: string) {
-    removeFromMyPage(id);
-    // Rimesso nel mazzo, così lo ritrovo anche tra le carte.
-    setQueue((q) => (q.includes(id) ? q : [...q, id]));
-  }
+  // Il mazzo: quelli che non ho ancora aggiunto né saltato.
+  const deck = shown.filter((e) => !isOnMyPage(e.id) && !skipped.includes(e.id));
+  const current = deck[0];
+  const next = deck[1];
 
   function handleSwiped(dir: 'left' | 'right') {
     if (!current) return;
     const added = dir === 'right';
     if (added) addToMyPage(current.id);
+    else setSkipped((s) => [...s, current.id]);
     setHistory((h) => [...h, { id: current.id, added }]);
-    setQueue((q) => q.slice(1));
   }
 
   function undo() {
     const last = history[history.length - 1];
     if (!last) return;
     if (last.added) removeFromMyPage(last.id);
+    else setSkipped((s) => s.filter((id) => id !== last.id));
     setHistory((h) => h.slice(0, -1));
-    setQueue((q) => [last.id, ...q]);
   }
 
-  function startOver() {
-    setQueue(allEvents.filter((e) => !isOnMyPage(e.id)).map((e) => e.id));
-    setHistory([]);
+  function toggle(e: EventItem) {
+    if (isOnMyPage(e.id)) removeFromMyPage(e.id);
+    else addToMyPage(e.id);
   }
+
+  const noData = allEvents.length === 0 && (loading || error);
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
-      <View style={styles.body}>
-        <StatusStrip />
-        <Text style={styles.title}>Discover</Text>
-        <Text style={styles.subtitle}>
-          {mode === 'list' ? `${listEvents.length} events` : current ? `${visible.length} left · swipe right to add, left to skip` : 'You have seen everything'}
-        </Text>
+    <Screen>
+      <View style={styles.header}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Choose a day" onPress={() => setMenu(true)} style={styles.dayButton}>
+          <Text style={styles.title}>{day === 'All' ? 'Upcoming' : day}</Text>
+          <Ionicons name="chevron-down" size={22} color={colors.text} />
+        </Pressable>
+        <StatChips />
+      </View>
+      <View style={styles.modes}>
+        {(['swipe', 'list'] as Mode[]).map((m) => (
+          <Pressable key={m} accessibilityRole="button" accessibilityState={{ selected: mode === m }} onPress={() => setMode(m)} style={[styles.modeBtn, mode === m && styles.modeActive]}>
+            <Text style={[styles.modeText, mode === m && styles.modeTextActive]}>{m === 'swipe' ? 'Swipe' : 'List'}</Text>
+          </Pressable>
+        ))}
+      </View>
 
-        <View style={styles.segment}>
-          <Segment label="Cards" active={mode === 'cards'} onPress={() => setMode('cards')} />
-          <Segment label="List" active={mode === 'list'} onPress={() => setMode('list')} />
-        </View>
+      {noData ? (
+        <ServerStatus variant="poster" />
+      ) : mode === 'swipe' ? (
+        <>
+          <View style={styles.deck}>
+            {current ? (
+              <>
+                {next && (
+                  <View style={styles.behind}>
+                    <PosterFace event={next} />
+                  </View>
+                )}
+                <SwipeCard key={current.id} ref={cardRef} event={current} onSwiped={handleSwiped} onPress={() => openEvent(current.id)} />
+              </>
+            ) : (
+              <View style={styles.done}>
+                <Text style={{ fontSize: 56 }}>🎉</Text>
+                <Text style={styles.doneTitle}>{shown.length === 0 ? 'Nothing here yet' : "You've seen them all!"}</Text>
+                <Text style={styles.doneText}>
+                  {shown.length === 0
+                    ? 'No events on this day. Try another day, or check back soon.'
+                    : 'Changed your mind? Tap the ↩ button to bring back the last one, or switch to List to see everything.'}
+                </Text>
+                {skipped.length > 0 && (
+                  <View style={{ width: '100%' }}>
+                    <SmallButton label="Show skipped events again" onPress={() => { setSkipped([]); setHistory([]); }} />
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
 
-        {mode === 'list' ? (
-          <FlatList
-            data={listEvents}
-            keyExtractor={(e) => e.id}
-            contentContainerStyle={{ gap: sizes.gap, paddingTop: 12, paddingBottom: 12 }}
-            renderItem={({ item }) => {
-              const added = isOnMyPage(item.id);
-              return (
+          <View style={styles.actions}>
+            <View style={{ flex: 1 }}>
+              <ActionPill label="✕  Skip" disabled={!current} onPress={() => cardRef.current?.swipe('left')} />
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Undo"
+              disabled={history.length === 0}
+              onPress={undo}
+              style={[styles.undo, history.length === 0 && { opacity: 0.4 }]}>
+              <Text style={styles.undoText}>↩</Text>
+            </Pressable>
+            <View style={{ flex: 1 }}>
+              <ActionPill label="♥  Add" filled disabled={!current} onPress={() => cardRef.current?.swipe('right')} />
+            </View>
+          </View>
+        </>
+      ) : (
+        <FlatList
+          data={visibleEvents}
+          keyExtractor={(e) => e.id}
+          contentContainerStyle={{ gap: sizes.gap, padding: sizes.margin, paddingTop: 12, paddingBottom: tabSpace }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[colors.primary]} tintColor={colors.primary} />}
+          ListEmptyComponent={<Text style={styles.empty}>No events yet. Check back soon!</Text>}
+          renderItem={({ item, index }) => {
+            const added = isOnMyPage(item.id);
+            return (
+              <FadeInView index={index}>
                 <EventCard
                   event={item}
                   showDay
                   showAddress
-                  note={added ? 'On my page' : skipped.includes(item.id) ? 'Skipped' : undefined}
+                  note={added ? 'In your events' : skipped.includes(item.id) ? 'Skipped' : undefined}
+                  onPress={() => openEvent(item.id)}
                   right={
                     added ? (
-                      <SmallButton tone="remove" label="Remove" accessibilityLabel={`Remove ${item.title} from my page`} onPress={() => listRemove(item.id)} />
+                      <CardAction tone="remove" label={`Remove ${item.title} from my calendar`} onPress={() => toggle(item)} />
                     ) : (
-                      <SmallButton label="Add" accessibilityLabel={`Add ${item.title} to my page`} onPress={() => listAdd(item.id)} />
+                      <CardAction tone="add" label={`Add ${item.title} to my calendar`} onPress={() => toggle(item)} />
                     )
                   }
                 />
-              );
-            }}
-          />
-        ) : (
-        <View style={styles.deck}>
-          {current ? (
-            <>
-              {next && (
-                <View style={styles.behind}>
-                  <EventFace event={next} />
-                </View>
-              )}
-              <SwipeCard
-                key={current.id}
-                ref={cardRef}
-                event={current}
-                onSwiped={handleSwiped}
-              />
-            </>
-          ) : (
-            <View style={styles.empty}>
-              <Text style={styles.emptyEmoji}>🎉</Text>
-              <Text style={styles.emptyTitle}>That's all for now</Text>
-              <Text style={styles.emptyText}>New events show up when the organisers add them. You can also go through the skipped ones again.</Text>
-              <AppButton label="Start over" onPress={startOver} />
-            </View>
-          )}
-        </View>
-        )}
-      </View>
-
-      {mode === 'cards' && current && (
-        <View style={styles.actions}>
-          <RoundButton label="Skip" symbol="✕" size={68} onPress={() => cardRef.current?.swipe('left')} />
-          <RoundButton label="Undo" symbol="↩" size={52} disabled={history.length === 0} onPress={undo} />
-          <RoundButton label="Add" symbol="♥" size={68} filled onPress={() => cardRef.current?.swipe('right')} />
-        </View>
+              </FadeInView>
+            );
+          }}
+        />
       )}
-    </SafeAreaView>
+
+      <Modal visible={menu} transparent animationType="fade" onRequestClose={() => setMenu(false)}>
+        <Pressable style={styles.backdrop} onPress={() => setMenu(false)}>
+          <View style={styles.menu}>
+            {['All', ...days].map((d) => (
+              <Pressable
+                key={d}
+                accessibilityRole="button"
+                onPress={() => {
+                  setPickedDay(d);
+                  setMenu(false);
+                }}
+                style={styles.menuItem}>
+                <Text style={[styles.menuText, d === day && { color: colors.primary, fontWeight: '700' }]}>{d === 'All' ? 'All upcoming events' : d}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
+    </Screen>
   );
 }
 
-function Segment({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+function ActionPill({ label, filled = false, disabled = false, onPress }: { label: string; filled?: boolean; disabled?: boolean; onPress: () => void }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ selected: active }}
+      accessibilityLabel={label}
+      disabled={disabled}
       onPress={onPress}
-      style={[styles.segBtn, active && styles.segActive]}>
-      <Text style={[styles.segText, active && styles.segTextActive]}>{label}</Text>
+      style={[styles.pill, filled ? styles.pillFilled : styles.pillOutline, disabled && { opacity: 0.4 }]}>
+      <Text style={[styles.pillText, { color: filled ? colors.onPrimary : colors.text }]}>{label}</Text>
     </Pressable>
   );
 }
 
-function RoundButton({
-  label,
-  symbol,
-  size,
-  filled = false,
-  disabled = false,
-  onPress,
-}: {
-  label: string;
-  symbol: string;
-  size: number;
-  filled?: boolean;
-  disabled?: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <View style={{ alignItems: 'center', gap: 6, opacity: disabled ? 0.4 : 1 }}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        disabled={disabled}
-        onPress={onPress}
-        style={{
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: filled ? colors.primary : colors.surface,
-          borderWidth: filled ? 0 : 2,
-          borderColor: colors.outline,
-        }}>
-        <Text style={{ fontSize: size / 2, color: filled ? colors.onPrimary : colors.muted }}>{symbol}</Text>
-      </Pressable>
-      <Text style={styles.btnLabel}>{label}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
-  body: { flex: 1, paddingHorizontal: sizes.margin },
-  title: { fontSize: 26, fontWeight: '700', color: colors.text },
-  subtitle: { fontSize: 14, color: colors.muted, marginTop: 2 },
-  segment: {
-    flexDirection: 'row',
-    backgroundColor: colors.border,
-    borderRadius: 14,
-    padding: 4,
-    marginTop: 10,
-  },
-  segBtn: { flex: 1, height: sizes.minTouch - 4, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  segActive: { backgroundColor: colors.surface },
-  segText: { fontSize: 16, fontWeight: '500', color: colors.muted },
-  segTextActive: { fontWeight: '700', color: colors.primary },
-  deck: { flex: 1, marginTop: 14, marginBottom: 8 },
-  behind: {
-    position: 'absolute',
-    top: 14,
-    left: 10,
-    right: 10,
-    bottom: -4,
-    backgroundColor: colors.surface,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-    opacity: 0.9,
-  },
-  actions: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 26, paddingTop: 6, paddingBottom: 14 },
-  btnLabel: { fontSize: 13, fontWeight: '700', color: colors.muted },
-  empty: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-  },
-  emptyEmoji: { fontSize: 56 },
-  emptyTitle: { fontSize: 22, fontWeight: '700', color: colors.text },
-  emptyText: { fontSize: 16, lineHeight: 23, color: colors.muted, textAlign: 'center', marginBottom: 8 },
+  header: { paddingHorizontal: sizes.margin, paddingTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  place: { fontSize: 16, fontWeight: '600', color: colors.muted },
+  dayButton: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: sizes.minTouch, alignSelf: 'flex-start' },
+  title: { fontSize: 32, fontWeight: '700', color: colors.text },
+  modes: { flexDirection: 'row', marginHorizontal: sizes.margin, marginBottom: 12, backgroundColor: 'rgba(255,255,255,0.45)', borderRadius: r(999), padding: 3 },
+  modeBtn: { flex: 1, minHeight: 44, borderRadius: r(999), alignItems: 'center', justifyContent: 'center' },
+  modeActive: { backgroundColor: colors.surface },
+  modeText: { fontSize: 16, fontWeight: '600', color: colors.muted },
+  modeTextActive: { color: colors.primary, fontWeight: '700' },
+  deck: { flex: 1, marginHorizontal: sizes.margin, marginBottom: 6 },
+  behind: { position: 'absolute', top: 10, left: 14, right: 14, bottom: -6, borderRadius: r(28), overflow: 'hidden', backgroundColor: colors.tint, opacity: 0.85 },
+  done: { flex: 1, backgroundColor: colors.glass, borderRadius: r(28), borderWidth: 1, borderColor: colors.glassBorder, padding: 24, alignItems: 'center', justifyContent: 'center', gap: 10 },
+  doneTitle: { fontSize: 22, fontWeight: '700', color: colors.text },
+  doneText: { fontSize: 16, lineHeight: 23, color: colors.muted, textAlign: 'center', marginBottom: 8 },
+  info: { paddingHorizontal: sizes.margin, paddingTop: 2 },
+  eventTitle: { fontSize: 26, fontWeight: '700', color: colors.text },
+  keywords: { fontSize: 16, color: colors.muted, marginTop: 2 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: sizes.margin, paddingTop: 10, paddingBottom: 4 },
+  pill: { height: sizes.buttonPrimary, borderRadius: r(999), alignItems: 'center', justifyContent: 'center' },
+  pillFilled: { backgroundColor: colors.primary },
+  pillOutline: { borderWidth: 1.5, borderColor: colors.glassBorder, backgroundColor: 'rgba(255,255,255,0.5)' },
+  pillText: { fontSize: 16, fontWeight: '700' },
+  undo: { width: 52, height: 52, borderRadius: r(26), borderWidth: 1.5, borderColor: colors.glassBorder, backgroundColor: 'rgba(255,255,255,0.5)', alignItems: 'center', justifyContent: 'center' },
+  undoText: { fontSize: 22, color: colors.muted },
+  empty: { fontSize: 16, color: colors.muted, textAlign: 'center', padding: 32, lineHeight: 23 },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.25)', justifyContent: 'flex-start', paddingTop: 110, paddingHorizontal: sizes.margin },
+  menu: { backgroundColor: colors.surface, borderRadius: r(sizes.radius), paddingVertical: 6, alignSelf: 'flex-start', minWidth: 220, elevation: 8 },
+  menuItem: { minHeight: sizes.minTouch, justifyContent: 'center', paddingHorizontal: 20 },
+  menuText: { fontSize: 17, color: colors.text },
 });

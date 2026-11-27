@@ -3,7 +3,7 @@ import { openDirections } from '@/lib/maps';
 import { colors } from '@/theme';
 
 // L'indirizzo è un link: un tocco e si apre direttamente Google Maps con le indicazioni.
-export function AddressLink({ address }: { address: string }) {
+export function AddressLink({ address, label }: { address: string; label?: string }) {
   return (
     <Pressable
       accessibilityRole="link"
@@ -11,7 +11,7 @@ export function AddressLink({ address }: { address: string }) {
       hitSlop={{ top: 6, bottom: 6 }}
       onPress={() => openDirections(address)}
       style={styles.row}>
-      <Text style={styles.text}>📍 {address}</Text>
+      <Text style={styles.text}>📍 {label ?? address}</Text>
     </Pressable>
   );
 }

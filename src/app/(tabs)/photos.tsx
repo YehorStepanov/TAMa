@@ -1,152 +1,109 @@
+import { useCallback, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { MemoryCard } from '@/components/MemoryCard';
+import { Screen, useTabSpace } from '@/components/Screen';
 import { useEvents } from '@/context/EventsContext';
-import { instantsForEvent, type Instant } from '@/data/photos';
-import { MOCK_RECEIVED } from '@/data/reactions';
-import { colors, sizes } from '@/theme';
+import type { EventItem } from '@/data/events';
+import { fromApiPhoto, type Instant } from '@/data/photos';
+import { getEventPhotos } from '@/lib/api';
+import { colors, sizes, r } from '@/theme';
 
 const ROTATIONS = ['-8deg', '6deg', '0deg'];
 
-// Una "pila" di instants, come nelle foto di Instagram: le prime tre foto, un po' inclinate.
-function Stack({ instants, emoji }: { instants: Instant[]; emoji: string }) {
-  const shown = instants.slice(0, 3).reverse(); // l'ultima disegnata resta sopra
-  if (shown.length === 0) {
-    return (
-      <View style={styles.stack}>
-        <View style={[styles.stackCard, styles.stackEmpty]}>
-          <Text style={{ fontSize: 44 }}>{emoji}</Text>
-        </View>
-      </View>
-    );
-  }
+// Una "pila" di foto degli altri partecipanti, un po' inclinate.
+function EventStack({ event }: { event: EventItem }) {
+  const [photos, setPhotos] = useState<Instant[] | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      getEventPhotos(event.id)
+        .then((list) => alive && setPhotos(list.map(fromApiPhoto)))
+        .catch(() => alive && setPhotos([]));
+      return () => {
+        alive = false;
+      };
+    }, [event.id]),
+  );
+
+  const shown = (photos ?? []).slice(0, 3).reverse(); // l'ultima disegnata resta sopra
+
   return (
-    <View style={styles.stack}>
-      {shown.map((it, i) => (
-        <Image
-          key={it.key}
-          source={it.source}
-          resizeMode="cover"
-          style={[styles.stackCard, { transform: [{ rotate: ROTATIONS[i % 3] }] }]}
-        />
-      ))}
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open photos from ${event.title}`}
+      onPress={() => router.push({ pathname: '/instants', params: { id: event.id } })}
+      style={styles.tile}>
+      <View style={styles.stack}>
+        {shown.length === 0 ? (
+          <View style={[styles.stackCard, styles.stackEmpty]}>
+            <Text style={{ fontSize: 44 }}>{event.emoji}</Text>
+          </View>
+        ) : (
+          shown.map((p, i) => <Image key={p.key} source={{ uri: p.thumb }} resizeMode="cover" style={[styles.stackCard, { transform: [{ rotate: ROTATIONS[i % 3] }] }]} />)
+        )}
+      </View>
+      <Text style={styles.eventTitle} numberOfLines={1}>
+        {event.title}
+      </Text>
+      <Text style={styles.eventLine}>{photos === null ? 'Loading…' : `${photos.length} ${photos.length === 1 ? 'photo' : 'photos'}`}</Text>
+    </Pressable>
   );
 }
 
-// Bacheca foto: una pila per ogni evento a cui ho partecipato.
+// Photos: prima le TUE foto (grandi, con sfida e reazioni), poi le foto degli altri partecipanti dei tuoi eventi.
 export default function PhotosScreen() {
-  const { attendedEvents, myPhotos } = useEvents();
+  const { attendedEvents, refreshMyPhotos } = useEvents();
+  const tabSpace = useTabSpace();
 
-  const mineEvent = attendedEvents.find((e) => (myPhotos[e.id] ?? []).length > 0);
-  const received = MOCK_RECEIVED.reduce((n, r) => n + r.count, 0);
+  useFocusEffect(
+    useCallback(() => {
+      refreshMyPhotos();
+    }, []), // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.body}>
-        <Text style={styles.title}>Photo wall</Text>
-        <Text style={styles.subtitle}>Instants from your events · last 24 hours</Text>
+    <Screen>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: sizes.margin, paddingTop: 12, paddingBottom: tabSpace, gap: sizes.gap }} showsVerticalScrollIndicator={false}>
+        <Text style={styles.title}>Photos</Text>
 
         {attendedEvents.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>No instants yet</Text>
-            <Text style={styles.emptyText}>
-              Complete a mission and send your photo. Then you can see the instants from that event, for 24 hours.
-            </Text>
+            <Text style={styles.emptyTitle}>Nothing to see yet</Text>
+            <Text style={styles.emptyText}>Send a photo at an event and everyone else's pictures from it will show up here.</Text>
           </View>
         ) : (
           <>
-            <View style={styles.grid}>
-              {attendedEvents.map((event) => {
-                // L'anteprima mostra solo le foto degli altri: la mia non si può votare, la vedo nella scheda "Your instant".
-                const instants = instantsForEvent(event.id, []);
-                return (
-                  <Pressable
-                    key={event.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Open instants from ${event.title}`}
-                    onPress={() => router.push({ pathname: '/instants', params: { id: event.id } })}
-                    style={styles.tile}>
-                    <Stack instants={instants} emoji={event.emoji} />
-                    <Text style={styles.eventTitle}>{event.title}</Text>
-                    <Text style={styles.eventLine}>{instants.length} instants</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            <Text style={styles.label}>YOUR PHOTOS</Text>
+            {attendedEvents.map((e) => (
+              <MemoryCard key={e.id} event={e} onPress={() => router.push({ pathname: '/memory', params: { id: e.id } })} />
+            ))}
 
-            {mineEvent && (
-              <View style={styles.card}>
-                <View style={styles.cardRow}>
-                  <Image source={{ uri: myPhotos[mineEvent.id][0] }} style={styles.thumb} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.cardTitle}>Your instant · {mineEvent.title}</Text>
-                    <Text style={styles.eventLine}>Only you can see this</Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={styles.big}>{received}</Text>
-                    <Text style={styles.eventLine}>reactions</Text>
-                  </View>
-                </View>
-                <View style={styles.emojiRow}>
-                  {MOCK_RECEIVED.map((r) => (
-                    <Text key={r.emoji} style={styles.emojiCount}>
-                      {r.emoji} {r.count}
-                    </Text>
-                  ))}
-                </View>
-              </View>
-            )}
+            <Text style={[styles.label, { marginTop: 12 }]}>FROM YOUR EVENTS</Text>
+            <View style={styles.grid}>
+              {attendedEvents.map((event) => (
+                <EventStack key={event.id} event={event} />
+              ))}
+            </View>
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
-  body: { paddingHorizontal: sizes.margin, paddingTop: 56, paddingBottom: 24 },
-  title: { fontSize: 26, fontWeight: '700', color: colors.text },
-  subtitle: { fontSize: 14, color: colors.muted, marginTop: 2 },
-  empty: {
-    marginTop: 16,
-    backgroundColor: colors.surface,
-    borderRadius: sizes.radius,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 20,
-    gap: 6,
-  },
-  emptyTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
+  title: { fontSize: 32, fontWeight: '700', color: colors.text },
+  label: { fontSize: 13, fontWeight: '700', letterSpacing: 0.8, color: colors.muted, marginTop: 4 },
+  empty: { backgroundColor: colors.glass, borderRadius: r(20), borderWidth: 1, borderColor: colors.glassBorder, padding: 18, gap: 6 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
   emptyText: { fontSize: 16, lineHeight: 23, color: colors.muted },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   tile: { width: '48%', minHeight: 48 },
-  stack: { height: 204, alignItems: 'center', justifyContent: 'center' },
-  stackCard: {
-    position: 'absolute',
-    width: 132,
-    height: 176,
-    borderRadius: 18,
-    borderWidth: 3,
-    borderColor: colors.surface,
-    backgroundColor: colors.border,
-  },
-  stackEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3DED3' },
-  eventTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
-  eventLine: { fontSize: 13, color: colors.muted },
-  card: {
-    marginTop: 16,
-    backgroundColor: colors.surface,
-    borderRadius: sizes.radius,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 14,
-  },
-  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  thumb: { width: 52, height: 52, borderRadius: 12, backgroundColor: colors.border },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
-  big: { fontSize: 24, fontWeight: '700', color: colors.text },
-  emojiRow: { flexDirection: 'row', gap: 14, marginTop: 10 },
-  emojiCount: { fontSize: 16, fontWeight: '700', color: colors.text },
+  stack: { height: 176, alignItems: 'center', justifyContent: 'center' },
+  stackCard: { position: 'absolute', width: 124, height: 160, borderRadius: r(20), borderWidth: 3, borderColor: colors.surface, backgroundColor: colors.tint },
+  stackEmpty: { alignItems: 'center', justifyContent: 'center' },
+  eventTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
+  eventLine: { fontSize: 15, color: colors.muted },
 });
